@@ -28,10 +28,6 @@ canvas{display:block;width:100%;height:100%;image-rendering:auto;cursor:crosshai
 .slot small{position:absolute;left:4px;top:2px;font-size:10px;color:#fff}
 .slot em{position:absolute;right:4px;bottom:2px;font-size:10px;font-style:normal;color:#fff}
 #hint{position:absolute;right:12px;bottom:86px;color:#fff;font-size:10px;padding:5px 8px;border-radius:7px;background:rgba(0,0,0,.38);text-shadow:0 2px 4px #000;pointer-events:none}
-#movePad{position:absolute;left:16px;bottom:18px;z-index:20;display:grid;grid-template-columns:46px 46px 46px;grid-template-rows:46px 46px 46px;gap:5px;user-select:none;touch-action:none}
-#movePad button{border:1px solid rgba(255,255,255,.32);border-radius:9px;background:rgba(15,22,29,.72);color:#fff;font-size:18px;font-weight:900;padding:0;touch-action:none}
-#movePad .up{grid-column:2}.left{grid-column:1;grid-row:2}.down{grid-column:2;grid-row:3}.right{grid-column:3;grid-row:2}
-#movePad .sprint{grid-column:1 / span 3;grid-row:4;width:147px;height:30px;font-size:11px}
 #error{position:absolute;left:6%;right:6%;top:8%;bottom:8%;display:none;z-index:30;background:#281216;color:#fff;border:1px solid #a04b58;border-radius:12px;padding:18px;white-space:pre-wrap;overflow:auto}
 @media(max-width:850px){#panel{width:215px}.slot{width:48px;height:48px;font-size:21px}#message{bottom:84px}}
 </style>
@@ -92,13 +88,6 @@ background:rgba(8,12,18,.94);pointer-events:auto;visibility:visible;opacity:1;">
 
 <div id="hotbar"></div>
 <div id="hint">MOVE MOUSE = look. Click LOCK MOUSE for unlimited turning. ESC = release.</div>
-<div id="movePad" aria-label="Movement controls">
-<button class="up" data-key="w">▲</button>
-<button class="left" data-key="a">◀</button>
-<button class="down" data-key="s">▼</button>
-<button class="right" data-key="d">▶</button>
-<button class="sprint" data-key="shift">SPRINT</button>
-</div>
 <div id="error"></div>
 </div>
 
@@ -116,13 +105,6 @@ background:rgba(8,12,18,.94);pointer-events:auto;visibility:visible;opacity:1;">
 
 function initGame(THREE){
 
-window.addEventListener("error",e=>{
-  const box=document.getElementById("error");
-  if(box){
-    box.style.display="block";
-    box.textContent="Game error:\n\n"+(e.error?.stack||e.message||"Unknown error");
-  }
-});
 const canvas=document.getElementById("c");
 canvas.tabIndex=0;
 canvas.addEventListener("mousedown",()=>canvas.focus());
@@ -415,8 +397,7 @@ function addHouse(x,z,w,d){
 
   const roof=new THREE.Mesh(
     new THREE.BoxGeometry(w+.45,.7,d+.45),
-    MAT.roof
-  );
+    MAT.roof  );
   roof.position.y=3.1;
   roof.castShadow=true;
   g.add(roof);
@@ -785,10 +766,10 @@ const state={
   wood:0,
   rawMeat:0,
   apples:0,
-  bread:2,
+  bread:0,
   goldenApples:0,
-  weapon:"Wood Sword",
-  damage:18,
+  weapon:"Empty Hands",
+  damage:4,
   selected:1,
   attackCd:0,
   swing:0,
@@ -803,7 +784,7 @@ const state={
 };
 
 const items=[
-  {key:"1",name:"Wood Sword",icon:"🪵",type:"weapon",damage:18},
+  {key:"1",name:"Empty Hands",icon:"✋",type:"weapon",damage:4},
   {key:"2",name:"Stone Sword",icon:"🪨",type:"weapon",damage:27},
   {key:"3",name:"Iron Sword",icon:"⚔️",type:"weapon",damage:40},
   {key:"4",name:"Diamond Sword",icon:"💎",type:"weapon",damage:58},
@@ -1009,3 +990,2317 @@ function interact(){
   const n=nearest(npcs,2.3);
 
   if(!n){
+    msg("Nothing nearby.");
+    return;
+  }
+
+  if(n.type==="elder"){
+    if(state.quest===0){
+      state.quest=1;
+      state.kills=0;
+      msg("Elder Mira: Defeat 4 monsters!");
+    }else if(state.quest===1&&state.kills>=4){
+      state.quest=2;
+      state.gold+=60;
+      state.xp+=60;
+      msg("Quest complete! +60 gold and +60 XP.");
+    }else if(state.quest===2&&state.opened>=2){
+      state.quest=3;
+      state.gold+=100;
+      state.xp+=90;
+      msg("Quest complete! You found the treasure.");
+    }else if(state.quest===1){
+      msg("Elder Mira: "+state.kills+" / 4 monsters defeated.");
+    }else if(state.quest===2){
+      msg("Elder Mira: Open 2 chests.");
+    }else{
+      msg("Elder Mira: Keep exploring.");
+    }
+  }else if(n.type==="farmer"){
+    state.bread+=1;
+    msg("Farmer Ben gave you bread.");
+  }else if(n.type==="smith"){
+    if(state.stone>=3&&state.damage<40){
+      state.stone-=3;
+      state.weapon="Iron Sword";
+      state.damage=40;
+      selectByName("Iron Sword");
+      msg("Kai upgraded you to an Iron Sword.");
+    }else{
+      msg("Kai: Bring me 3 stone.");
+    }
+  }else if(n.type==="guard"){
+    msg("Guard Tomas: Monsters come from the mountains.");
+  }else{
+    const nGold=8+Math.floor(Math.random()*16);
+    state.gold+=nGold;
+    msg("Merchant Lina paid you "+nGold+" gold for helping around town.");
+  }
+
+  updateUI();
+}
+
+function selectByName(name){
+  const i=items.findIndex(x=>x.name===name);
+  if(i>=0)state.selected=i+1;
+  buildHotbar();
+}
+
+function consumeFood(){
+  const item=selectedItem();
+
+  if(item.name==="Bread"){
+    if(state.bread<=0){msg("No bread.");return}
+    if(state.hunger>=100){msg("You are not hungry.");return}
+    state.bread--;
+    state.hunger=Math.min(100,state.hunger+30);
+    msg("You ate bread. +30 hunger.");
+  }else if(item.name==="Raw Meat"){
+    if(state.rawMeat<=0){msg("No raw meat.");return}
+    if(state.hunger>=100){msg("You are not hungry.");return}
+    state.rawMeat--;
+    state.hunger=Math.min(100,state.hunger+24);
+    msg("You ate raw meat. +24 hunger.");
+  }else if(item.name==="Golden Apple"){
+    if(state.goldenApples<=0){msg("No golden apples.");return}
+    state.goldenApples--;
+    state.hunger=Math.min(100,state.hunger+45);
+    state.hp=Math.min(100,state.hp+25);
+    state.mana=Math.min(100,state.mana+30);
+    msg("Golden Apple! Health, hunger and mana restored.");
+  }
+  updateUI();
+}
+
+function mine(){
+  const rock=nearest(rocks,1.9);
+  if(rock){
+    scene.remove(rock.g);
+    rocks.splice(rocks.indexOf(rock),1);
+    state.stone++;
+    state.xp+=5;
+    msg("Mined stone.");
+    updateUI();
+    return;
+  }
+
+  const tree=nearest(trees,1.9);
+  if(tree){
+    scene.remove(tree.g);
+    trees.splice(trees.indexOf(tree),1);
+    state.wood+=2;
+    state.xp+=5;
+    msg("Chopped tree. +2 wood.");
+    updateUI();
+    return;
+  }
+
+  msg("No tree or rock nearby.");
+}
+
+function fireball(){
+  if(state.mana<18){
+    msg("Not enough mana.");
+    return;
+  }
+
+  state.mana-=18;
+  state.magicFlash=.22;
+
+  const orb=new THREE.Mesh(
+    new THREE.SphereGeometry(.16,8,8),
+    MAT.fire
+  );
+
+  const start=new THREE.Vector3();
+  camera.getWorldPosition(start);
+
+  const dir=new THREE.Vector3(0,0,-1);
+  dir.applyQuaternion(camera.quaternion);
+  dir.normalize();
+
+  orb.position.copy(start);
+  orb.userData.life=2.6;
+  orb.userData.speed=19;
+  orb.userData.dir=dir;
+  orb.userData.damage=45;
+
+  scene.add(orb);
+  projectiles.push(orb);
+  msg("Fireball cast!");
+  updateUI();
+}
+
+function healMagic(){
+  if(state.mana<25){
+    msg("Not enough mana.");
+    return;
+  }
+
+  if(state.hp>=100){
+    msg("Health is already full.");
+    return;
+  }
+
+  state.mana-=25;
+  state.hp=Math.min(100,state.hp+38);
+  state.magicFlash=.3;
+  msg("Healing magic restored 38 HP.");
+  updateUI();
+}
+
+const raycaster=new THREE.Raycaster();
+const center=new THREE.Vector2(0,0);
+
+function attack(){
+  if(!state.started||state.attackCd>0||state.death>0)return;
+
+  const item=selectedItem();
+
+  if(item.type==="food"){
+    consumeFood();
+    return;
+  }
+
+  if(item.type==="magic"){
+    fireball();
+    return;
+  }
+
+  state.attackCd=item.type==="bow"?.65:.38;
+  state.swing=1;
+
+  raycaster.setFromCamera(center,camera);
+
+  const targets=[
+    ...monsters.map(m=>m.g),
+    ...animals.map(a=>a.g)
+  ];
+
+  const hits=raycaster.intersectObjects(targets,true);
+
+  for(const h of hits){
+    let o=h.object;
+
+    while(o&&!o.userData.monsterRef&&!o.userData.animalRef){
+      o=o.parent;
+    }
+
+    const monster=o?.userData.monsterRef;
+    const animal=o?.userData.animalRef;
+    const target=monster||animal;
+
+    if(!target)continue;
+
+    const d=Math.hypot(
+      target.x-state.px,
+      target.z-state.pz
+    );
+  bar.innerHTML="";
+  items.forEach((item,i)=>{
+    const slot=document.createElement("div");
+    slot.className="slot"+(state.selected===i+1?" selected":"");
+    slot.dataset.slot=i+1;
+    slot.innerHTML=
+      "<small>"+item.key+"</small>"+
+      "<span>"+item.icon+"</span>"+
+      "<em id=\"count"+(i+1)+"\"></em>";
+    slot.addEventListener("click",()=>{
+      selectSlot(i+1);
+      canvas.focus();
+    });
+    bar.appendChild(slot);
+  });
+}
+
+function selectSlot(n){
+  state.selected=Math.max(1,Math.min(9,n));
+  const item=items[state.selected-1];
+  state.weapon=item.name;
+  if(item.type==="weapon"||item.type==="bow"){
+    state.damage=item.damage;
+  }
+  if(item.type==="magic"){
+    state.damage=0;
+  }
+  buildHotbar();
+  updateUI();
+}
+
+function selectedItem(){
+  return items[state.selected-1];
+}
+
+function groundY(x,z){
+  const ix=Math.max(0,Math.min(WORLD-1,Math.floor(x)));
+  const iz=Math.max(0,Math.min(WORLD-1,Math.floor(z)));
+  return heights[iz][ix]+1.05;
+}
+
+function blocked(x,z,r=.27){
+  if(x<2+r||z<2+r||x>WORLD-2-r||z>WORLD-2-r)return true;
+
+  for(const t of trees){
+    if(Math.hypot(x-t.x,z-t.z)<r+t.r)return true;
+  }
+
+  for(const r0 of rocks){
+    if(Math.hypot(x-r0.x,z-r0.z)<r+.44)return true;
+  }
+
+  for(const c of chests){
+    if(!c.open&&Math.hypot(x-c.x,z-c.z)<r+.46)return true;
+  }
+
+  for(const h of houses){
+    if(x+r>h.minX&&x-r<h.maxX&&z+r>h.minZ&&z-r<h.maxZ)return true;
+  }
+
+  const current=heightAt(state.px,state.pz);
+  const destination=heightAt(x,z);
+  if(destination-current>1.2)return true;
+
+  return false;
+}
+
+function heightAt(x,z){
+  const ix=Math.max(0,Math.min(WORLD-1,Math.floor(x)));
+  const iz=Math.max(0,Math.min(WORLD-1,Math.floor(z)));
+  return heights[iz][ix];
+}
+
+function move(dt){
+  if(!state.started)return;
+
+  const forward=(keys.w?1:0)-(keys.s?1:0);
+  const strafe=(keys.d?1:0)-(keys.a?1:0);
+
+  if(!forward&&!strafe)return;
+
+  const len=Math.hypot(forward,strafe);
+  const f=forward/len;
+  const s=strafe/len;
+
+  const fx=Math.sin(state.yaw);
+  const fz=-Math.cos(state.yaw);
+  const rx=Math.cos(state.yaw);
+  const rz=Math.sin(state.yaw);
+
+  let speed=4.8;
+  if(keys.shift)speed=7.0;
+
+  const dx=(fx*f+rx*s)*speed*dt;
+  const dz=(fz*f+rz*s)*speed*dt;
+
+  // Slide along obstacles instead of getting completely stuck.
+  const nx=state.px+dx;
+  const nz=state.pz+dz;
+
+  if(!blocked(nx,state.pz,.27)){
+    state.px=nx;
+  }
+
+  if(!blocked(state.px,nz,.27)){
+    state.pz=nz;
+  }
+}
+
+function jump(){
+  if(state.grounded){
+    state.vy=6.4;
+    state.grounded=false;
+  }
+}
+
+function updateVertical(dt){
+  const gy=groundY(state.px,state.pz);
+  state.vy-=17*dt;
+  state.py+=state.vy*dt;
+  if(state.py<=gy){
+    state.py=gy;
+    state.vy=0;
+    state.grounded=true;
+  }
+}
+
+function nearest(arr,maxDist){
+  let best=null,bd=maxDist;
+  for(const o of arr){
+    const ox=o.x,oz=o.z;
+    const d=Math.hypot(ox-state.px,oz-state.pz);
+    if(d<bd){bd=d;best=o}
+  }
+  return best;
+}
+
+function openChest(){
+  const c=nearest(chests,2.1);
+  if(!c){
+    msg("Move closer to a chest and press E.");
+    return;
+  }
+  if(c.open){
+    msg("That chest is empty.");
+    return;
+  }
+
+  c.open=true;
+  c.lid.rotation.x=-.95;
+  state.opened++;
+
+  const r=Math.random();
+
+  if(r<.20){
+    const n=20+Math.floor(Math.random()*61);
+    state.gold+=n;
+    msg("Chest loot: "+n+" gold.");
+  }else if(r<.39){
+    const n=1+Math.floor(Math.random()*4);
+    state.bread+=n;
+    msg("Chest loot: "+n+" bread.");
+  }else if(r<.57){
+    const n=2+Math.floor(Math.random()*5);
+    state.rawMeat+=n;
+    msg("Chest loot: "+n+" raw meat.");
+  }else if(r<.75){
+    const n=4+Math.floor(Math.random()*9);
+    state.stone+=n;
+    msg("Chest loot: "+n+" stone.");
+  }else if(r<.88){
+    const n=4+Math.floor(Math.random()*9);
+    state.wood+=n;
+    msg("Chest loot: "+n+" wood.");
+  }else{
+    state.goldenApples++;
+    msg("RARE LOOT: Golden Apple!");
+  }
+
+  state.xp+=15;
+  updateUI();
+}
+
+function interact(){
+  const c=nearest(chests,2.1);
+  if(c){
+    openChest();
+    return;
+  }
+
+  const n=nearest(npcs,2.3);
+
+  if(!n){
+    msg("Nothing nearby.");
+    return;
+  }
+
+  if(n.type==="elder"){
+    if(state.quest===0){
+      state.quest=1;
+      state.kills=0;
+      msg("Elder Mira: Defeat 4 monsters!");
+    }else if(state.quest===1&&state.kills>=4){
+      state.quest=2;
+      state.gold+=60;
+      state.xp+=60;
+      msg("Quest complete! +60 gold and +60 XP.");
+    }else if(state.quest===2&&state.opened>=2){
+      state.quest=3;
+      state.gold+=100;
+      state.xp+=90;
+      msg("Quest complete! You found the treasure.");
+    }else if(state.quest===1){
+      msg("Elder Mira: "+state.kills+" / 4 monsters defeated.");
+    }else if(state.quest===2){
+      msg("Elder Mira: Open 2 chests.");
+    }else{
+      msg("Elder Mira: Keep exploring.");
+    }
+  }else if(n.type==="farmer"){
+    state.bread+=1;
+    msg("Farmer Ben gave you bread.");
+  }else if(n.type==="smith"){
+    if(state.stone>=3&&state.damage<40){
+      state.stone-=3;
+      state.weapon="Iron Sword";
+      state.damage=40;
+      selectByName("Iron Sword");
+      msg("Kai upgraded you to an Iron Sword.");
+    }else{
+      msg("Kai: Bring me 3 stone.");
+    }
+  }else if(n.type==="guard"){
+    msg("Guard Tomas: Monsters come from the mountains.");
+  }else{
+    const nGold=8+Math.floor(Math.random()*16);
+    state.gold+=nGold;
+    msg("Merchant Lina paid you "+nGold+" gold for helping around town.");
+  }
+
+  updateUI();
+}
+
+function selectByName(name){
+  const i=items.findIndex(x=>x.name===name);
+  if(i>=0)state.selected=i+1;
+  buildHotbar();
+}
+
+function consumeFood(){
+  const item=selectedItem();
+
+  if(item.name==="Bread"){
+    if(state.bread<=0){msg("No bread.");return}
+    if(state.hunger>=100){msg("You are not hungry.");return}
+    state.bread--;
+    state.hunger=Math.min(100,state.hunger+30);
+    msg("You ate bread. +30 hunger.");
+  }else if(item.name==="Raw Meat"){
+    if(state.rawMeat<=0){msg("No raw meat.");return}
+    if(state.hunger>=100){msg("You are not hungry.");return}
+    state.rawMeat--;
+    state.hunger=Math.min(100,state.hunger+24);
+    msg("You ate raw meat. +24 hunger.");
+  }else if(item.name==="Golden Apple"){
+    if(state.goldenApples<=0){msg("No golden apples.");return}
+    state.goldenApples--;
+    state.hunger=Math.min(100,state.hunger+45);
+    state.hp=Math.min(100,state.hp+25);
+    state.mana=Math.min(100,state.mana+30);
+    msg("Golden Apple! Health, hunger and mana restored.");
+  }
+  updateUI();
+}
+
+function mine(){
+  const rock=nearest(rocks,1.9);
+  if(rock){
+    scene.remove(rock.g);
+    rocks.splice(rocks.indexOf(rock),1);
+    state.stone++;
+    state.xp+=5;
+    msg("Mined stone.");
+    updateUI();
+    return;
+  }
+
+  const tree=nearest(trees,1.9);
+  if(tree){
+    scene.remove(tree.g);
+    trees.splice(trees.indexOf(tree),1);
+    state.wood+=2;
+    state.xp+=5;
+    msg("Chopped tree. +2 wood.");
+    updateUI();
+    return;
+  }
+
+  msg("No tree or rock nearby.");
+}
+
+function fireball(){
+  if(state.mana<18){
+    msg("Not enough mana.");
+    return;
+  }
+
+  state.mana-=18;
+  state.magicFlash=.22;
+
+  const orb=new THREE.Mesh(
+    new THREE.SphereGeometry(.16,8,8),
+    MAT.fire
+  );
+
+  const start=new THREE.Vector3();
+  camera.getWorldPosition(start);
+
+  const dir=new THREE.Vector3(0,0,-1);
+  dir.applyQuaternion(camera.quaternion);
+  dir.normalize();
+
+  orb.position.copy(start);
+  orb.userData.life=2.6;
+  orb.userData.speed=19;
+  orb.userData.dir=dir;
+  orb.userData.damage=45;
+
+  scene.add(orb);
+  projectiles.push(orb);
+  msg("Fireball cast!");
+  updateUI();
+}
+
+function healMagic(){
+  if(state.mana<25){
+    msg("Not enough mana.");
+    return;
+  }
+
+  if(state.hp>=100){
+    msg("Health is already full.");
+    return;
+  }
+
+  state.mana-=25;
+  state.hp=Math.min(100,state.hp+38);
+  state.magicFlash=.3;
+  msg("Healing magic restored 38 HP.");
+  updateUI();
+}
+
+const raycaster=new THREE.Raycaster();
+const center=new THREE.Vector2(0,0);
+
+function attack(){
+  if(!state.started||state.attackCd>0||state.death>0)return;
+
+  const item=selectedItem();
+
+  if(item.type==="food"){
+    consumeFood();
+    return;
+  }
+
+  if(item.type==="magic"){
+    fireball();
+    return;
+  }
+
+  state.attackCd=item.type==="bow"?.65:.38;
+  state.swing=1;
+
+  raycaster.setFromCamera(center,camera);
+
+  const targets=[
+    ...monsters.map(m=>m.g),
+    ...animals.map(a=>a.g)
+  ];
+
+  const hits=raycaster.intersectObjects(targets,true);
+
+  for(const h of hits){
+    let o=h.object;
+
+    while(o&&!o.userData.monsterRef&&!o.userData.animalRef){
+      o=o.parent;
+    }
+
+    const monster=o?.userData.monsterRef;
+    const animal=o?.userData.animalRef;
+    const target=monster||animal;
+
+    if(!target)continue;
+
+    const d=Math.hypot(
+      target.x-state.px,
+      target.z-state.pz
+    );
+
+    if(d>5.3)continue;
+
+    const damage=item.type==="bow"?item.damage:state.damage;
+
+    target.hp-=damage;
+
+    if(target.hp<=0){
+      killTarget(target,monster?"monster":"animal");
+    }else{
+      msg("Hit for "+damage+" damage.");
+    }
+
+    updateUI();
+    return;
+  }
+
+  msg(
+    item.type==="bow"
+    ?"Arrow missed."
+    :"Swing! Aim directly at the target."
+  );
+}
+
+function killTarget(target,kind){
+  scene.remove(target.g);
+
+  if(kind==="animal"){
+    animals.splice(
+      animals.indexOf(target),
+      1
+    );
+
+    const meat=
+      target.type==="cow"?3:
+      target.type==="pig"?2:1;
+
+    state.rawMeat+=meat;
+    state.xp+=target.type==="cow"?12:8;
+    msg(
+      "Hunted "+target.type+
+      ". +"+meat+" raw meat."
+    );
+  }else{
+    monsters.splice(
+      monsters.indexOf(target),
+      1
+    );
+
+    state.gold+=
+      target.type==="skeleton"?14:
+      target.type==="slime"?11:12;
+
+    state.xp+=
+      target.type==="skeleton"?24:
+      target.type==="slime"?19:21;
+
+    if(state.quest===1)state.kills++;
+
+    msg(
+      target.type+
+      " defeated! Loot collected."
+    );
+
+    spawnReplacementMonster();
+  }
+}
+
+function spawnReplacementMonster(){
+  const spots=[
+    [5,24,"zombie"],[20,15,"slime"],[61,22,"skeleton"],
+    [78,16,"zombie"],[16,69,"slime"],[73,65,"skeleton"],
+    [31,74,"zombie"],[90,47,"slime"],[51,11,"skeleton"],
+    [7,63,"zombie"],[82,84,"skeleton"],[59,86,"zombie"]
+  ];
+
+  const p=spots[
+    Math.floor(Math.random()*spots.length)
+  ];
+
+  if(
+    !monsters.some(
+      m=>Math.hypot(m.x-(p[0]+.5),m.z-(p[1]+.5))<3
+    )
+  ){
+    addMonster(p[0],p[1],p[2]);
+  }
+}
+
+function hurt(n){
+  if(state.inv>0||state.death>0)return;
+
+  state.inv=.75;
+  state.hp-=n;
+
+  if(state.hp<=0){
+    state.hp=0;
+    state.death=.8;
+    msg("You died! Respawning at the village...");
+  }else{
+    msg("You lost "+n+" HP.");
+  }
+
+  updateUI();
+}
+
+function updatePassiveAnimals(dt){
+  for(const a of animals){
+    if(a.dead)continue;
+
+    a.timer-=dt;
+
+    if(a.timer<=0){
+      a.timer=2.2+Math.random()*4;
+      const radius=5+Math.random()*6;
+      a.targetX=Math.max(3,Math.min(WORLD-3,a.x+(Math.random()-.5)*radius));
+      a.targetZ=Math.max(3,Math.min(WORLD-3,a.z+(Math.random()-.5)*radius));
+    }
+
+    const dx=a.targetX-a.x;
+    const dz=a.targetZ-a.z;
+    const d=Math.hypot(dx,dz);
+
+    if(d>.2){
+      const step=Math.min(a.speed*dt,d);
+      const nx=a.x+dx/d*step;
+      const nz=a.z+dz/d*step;
+
+      if(!blocked(nx,a.z,.18))a.x=nx;
+      if(!blocked(a.x,nz,.18))a.z=nz;
+
+      a.g.position.x=a.x;
+      a.g.position.z=a.z;
+      a.g.position.y=heightAt(a.x,a.z)+.02;
+      a.g.lookAt(a.targetX,a.g.position.y,a.targetZ);
+    }
+  }
+}
+
+function updateVillagers(dt){
+  for(const n of npcs){
+    n.timer-=dt;
+
+    if(n.timer<=0){
+      n.timer=2+Math.random()*4;
+
+      n.targetX=34+
+        (Math.random()-.5)*16;
+
+      n.targetZ=37+
+        (Math.random()-.5)*16;
+    }
+
+    const dx=n.targetX-n.x;
+    const dz=n.targetZ-n.z;
+    const d=Math.hypot(dx,dz);
+
+    if(d>.4){
+      const step=Math.min(.65*dt,d);
+      const nx=n.x+dx/d*step;
+      const nz=n.z+dz/d*step;
+
+      if(!blocked(nx,n.z,.22))n.x=nx;
+      if(!blocked(n.x,nz,.22))n.z=nz;
+
+      n.g.position.x=n.x;
+      n.g.position.z=n.z;
+      n.g.position.y=heightAt(n.x,n.z)+.02;
+      n.g.lookAt(n.targetX,n.g.position.y,n.targetZ);
+    }
+  }
+}
+
+function updateMonsters(dt){
+  for(const m of monsters){
+    if(m.dead)continue;
+
+    m.cooldown-=dt;
+    m.jumpTimer-=dt;
+
+    const dx=state.px-m.x;
+    const dz=state.pz-m.z;
+    const d=Math.hypot(dx,dz);
+
+    if(d<11){
+      const step=Math.min(
+        m.speed*dt,
+        Math.max(0,d-.82)
+      );
+
+      const nx=m.x+(dx/d)*step;
+      const nz=m.z+(dz/d)*step;
+
+      if(!blocked(nx,m.z,.2))m.x=nx;
+      if(!blocked(m.x,nz,.2))m.z=nz;
+
+      m.g.position.x=m.x;
+      m.g.position.z=m.z;
+      m.g.position.y=heightAt(m.x,m.z)+.02;
+
+      if(
+        d<1.3 &&
+        m.cooldown<=0
+      ){
+        m.cooldown=1;
+        hurt(m.damage);
+      }
+
+      if(
+        m.type==="slime"&&
+        m.jumpTimer<=0&&
+        d<5
+      ){
+        m.jumpTimer=1.6;
+        m.g.position.y+=.45;
+      }
+    }
+  }
+}
+
+function updateProjectiles(dt){
+  for(let i=projectiles.length-1;i>=0;i--){
+    const p=projectiles[i];
+
+    p.position.x+=p.userData.dir.x*p.userData.speed*dt;
+    p.position.y+=p.userData.dir.y*p.userData.speed*dt;
+    p.position.z+=p.userData.dir.z*p.userData.speed*dt;
+    p.userData.life-=dt;
+
+    let hit=false;
+
+    for(const m of monsters){
+      if(
+        Math.hypot(
+          p.position.x-m.g.position.x,
+          p.position.z-m.g.position.z
+        )<.7 &&
+        Math.abs(
+          p.position.y-(m.g.position.y+.6)
+        )<1
+      ){
+        m.hp-=p.userData.damage;
+        hit=true;
+
+        if(m.hp<=0){
+          killTarget(m,"monster");
+        }else{
+          msg("Fireball hit!");
+        }
+        break;
+      }
+    }
+
+    if(
+      p.userData.life<=0||
+      p.position.y<0||
+      p.position.y>25||
+      hit
+    ){
+      scene.remove(p);
+      projectiles.splice(i,1);
+    }
+  }
+}
+
+function updateHunger(dt){
+  state.hunger=Math.max(
+    0,
+    state.hunger-dt*(keys.shift?0.12:.085)
+  );
+
+  if(state.hunger<=0){
+    state.hp-=dt*2.4;
+    if(state.hp<=0){
+      state.hp=0;
+      state.death=.8;
+      msg("You starved! Respawning...");
+    }
+  }
+
+  state.mana=Math.min(100,state.mana+dt*3);
+}
+
+function respawn(){
+  state.px=34.5;
+  state.pz=54.5;
+  state.py=groundY(state.px,state.pz);
+  state.vy=0;
+  state.grounded=true;
+  state.hp=100;
+  state.hunger=Math.max(60,state.hunger);
+  state.mana=100;
+  state.inv=2;
+  state.death=0;
+  state.yaw=0;
+  state.pitch=0;
+  msg("Respawned at the village.");
+  updateUI();
+}
+
+function updateCameraAndWeapon(){
+  camera.position.set(
+    state.px,
+    state.py+.52,
+    state.pz
+  );
+
+  camera.rotation.y=state.yaw;
+  camera.rotation.x=state.pitch;
+
+  const selected=selectedItem();
+
+  sword.visible=
+    selected.type==="weapon";
+
+  bow.visible=
+    selected.type==="bow";
+
+  staff.visible=
+    selected.type==="magic";
+
+  if(selected.type==="weapon"){
+    sword.rotation.x=
+      -.53-state.swing*.95;
+
+    sword.rotation.z=
+      .17+state.swing*.48;
+
+    sword.position.y=
+      -.58-state.swing*.08;
+  }
+
+  if(selected.type==="bow"){
+    bow.rotation.z=
+      .25+state.swing*.16;
+  }
+
+  if(selected.type==="magic"){
+    staff.rotation.x=
+      -.45-state.swing*.3;
+  }
+}
+
+function updateUI(){
+  uiEl("hp").textContent=Math.round(state.hp);
+  uiEl("hp2").textContent=
+    Math.round(state.hp)+" / 100";
+  uiEl("hpFill").style.width=
+    Math.max(0,state.hp)+"%";
+
+  uiEl("hunger").textContent=
+    Math.round(state.hunger);
+  uiEl("hunger2").textContent=
+    Math.round(state.hunger)+" / 100";
+  uiEl("hungerFill").style.width=
+    Math.max(0,state.hunger)+"%";
+
+  uiEl("mana").textContent=
+    Math.round(state.mana);
+  uiEl("mana2").textContent=
+    Math.round(state.mana)+" / 100";
+  uiEl("manaFill").style.width=
+    Math.max(0,state.mana)+"%";
+
+  uiEl("weapon").textContent=state.weapon;
+  uiEl("weapon2").textContent=state.weapon;
+  uiEl("gold").textContent=state.gold;
+  uiEl("xp").textContent=state.xp;
+  uiEl("stone").textContent=state.stone;
+  uiEl("wood").textContent=state.wood;
+  uiEl("food").textContent=
+    state.bread+state.rawMeat+state.goldenApples;
+  uiEl("chests").textContent=
+    state.opened+"/"+chests.length;
+
+  if(state.quest===0){
+    uiEl("quest").textContent=
+      "Talk to Elder Mira.";
+  }else if(state.quest===1){
+    uiEl("quest").textContent=
+      "Defeat monsters: "+state.kills+" / 4";
+  }else if(state.quest===2){
+    uiEl("quest").textContent=
+      "Open chests: "+state.opened+" / 2";
+  }else{
+    uiEl("quest").textContent=
+      "Village quests complete.";
+  }
+
+  items.forEach((item,i)=>{
+    let count="";
+    if(item.amountKey){
+      count=state[item.amountKey]>0?
+        state[item.amountKey]:"";
+    }
+
+    const c=document.getElementById("count"+(i+1));
+    if(c)c.textContent=count;
+  });
+
+  document.querySelectorAll(".slot").forEach(s=>{
+    s.classList.toggle(
+      "selected",
+      Number(s.dataset.slot)===state.selected
+    );
+  });
+}
+
+function uiEl(id){
+  return document.getElementById(id);
+}
+
+function msg(text){
+  uiEl("message").textContent=text;
+  uiEl("status").textContent=text;
+}
+
+let mouseLookActive=false;
+
+function applyMouseLook(dx,dy){
+  if(!state.started || (!state.locked && !mouseLookActive))return;
+  if(!Number.isFinite(dx)||!Number.isFinite(dy))return;
+
+  state.yaw-=dx*.0027;
+  state.pitch-=dy*.0023;
+  state.pitch=Math.max(-.62,Math.min(.62,state.pitch));
+}
+
+function tryLock(e){
+  if(e?.preventDefault)e.preventDefault();
+  if(!state.started)return;
+
+  mouseLookActive=true;
+  canvas.focus();
+
+  if(document.pointerLockElement===canvas)return;
+
+  if(typeof canvas.requestPointerLock==="function"){
+    try{
+      const p=canvas.requestPointerLock();
+      if(p&&typeof p.catch==="function"){
+        p.catch(()=>{
+          // Normal mouse movement remains enabled even when Pointer Lock is denied.
+          msg("Mouse look is active. Click LOCK MOUSE for Minecraft-style capture.");
+        });
+      }
+    }catch(err){
+      msg("Mouse look is active. Click LOCK MOUSE for Minecraft-style capture.");
+    }
+  }
+}
+
+canvas.addEventListener("mousedown",e=>{
+  if(!state.started)return;
+  e.preventDefault();
+
+  if(e.button===0){
+    mouseLookActive=true;
+
+    if(document.pointerLockElement===canvas){
+      attack();
+    }else{
+      // Start normal mouse-look immediately, then try Pointer Lock.
+      tryLock(e);
+    }
+  }
+});
+
+canvas.addEventListener("click",e=>{
+  if(!state.started)return;
+  mouseLookActive=true;
+  tryLock(e);
+});
+
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+
+document.addEventListener("pointerlockchange",()=>{
+  state.locked=document.pointerLockElement===canvas;
+  mouseLookActive=state.started || state.locked;
+  uiEl("unlock").style.display=state.locked?"none":"block";
+
+  if(state.locked){
+    msg("MOUSE CAPTURED — move mouse to look. Left click attacks. ESC releases it.");
+    canvas.style.cursor="none";
+  }else if(state.started){
+    msg("Mouse look is active. Click LOCK MOUSE for unlimited camera turning.");
+    canvas.style.cursor="crosshair";
+  }
+});
+
+document.addEventListener("pointerlockerror",()=>{
+  state.locked=false;
+  mouseLookActive=state.started;
+  canvas.style.cursor="crosshair";
+  msg("Mouse look is active. Click LOCK MOUSE for unlimited camera turning.");
+});
+
+// IMPORTANT: use the browser's movementX/movementY globally.
+// This works even when Pointer Lock is unavailable or the cursor is over the HUD.
+window.addEventListener("mousemove",e=>{
+  if(!state.started)return;
+
+  const dx=e.movementX||0;
+  const dy=e.movementY||0;
+
+  if(dx||dy){
+    applyMouseLook(dx,dy);
+  }
+});
+
+window.addEventListener("pointerrawupdate",e=>{
+  if(!state.started || document.pointerLockElement!==canvas)return;
+
+  const dx=e.movementX||0;
+  const dy=e.movementY||0;
+  if(dx||dy)applyMouseLook(dx,dy);
+});
+
+uiEl("unlock").addEventListener("click",e=>{
+  e.preventDefault();
+  mouseLookActive=true;
+  tryLock(e);
+});
+
+const gameStartScreen=document.getElementById("gameStartScreen");
+const playButton=document.getElementById("playButton");
+
+if(gameStartScreen && playButton){
+  playButton.addEventListener("click",function(e){
+    e.preventDefault();
+    e.stopPropagation();
+
+    state.started=true;
+    mouseLookActive=true;
+    canvas.focus();
+
+    gameStartScreen.style.setProperty("display","none","important");
+    gameStartScreen.style.visibility="hidden";
+    gameStartScreen.style.pointerEvents="none";
+
+    msg("WASD = MOVE • Mouse = LOOK • Space = JUMP • ESC = release mouse capture.");
+
+    // Pointer Lock is optional; ordinary mouse-look still works without it.
+    tryLock(e);
+  });
+
+  playButton.addEventListener("pointerdown",function(e){
+    e.preventDefault();
+    e.stopPropagation();
+  });
+}
+
+function setMovementKey(e,down){
+  const map={
+    KeyW:"w",
+    KeyA:"a",
+    KeyS:"s",
+    KeyD:"d",
+    ShiftLeft:"shift",
+    ShiftRight:"shift"
+  };
+
+  const k=map[e.code];
+  if(k){
+    keys[k]=down;
+    if(down){
+      e.preventDefault();
+
+      // Safety net: if PLAY has closed but the state was not activated,
+      // pressing a movement key starts the gameplay input.
+      if(!state.started){
+        const startEl=document.getElementById("gameStartScreen");
+        if(startEl && getComputedStyle(startEl).display==="none"){
+          state.started=true;
+          mouseLookActive=true;
+        }
+      }
+    }
+  }
+}
+
+window.addEventListener("keydown",e=>{
+  setMovementKey(e,true);
+
+  const k=e.key.toLowerCase();
+  if(
+    ["e","r","q","f","2","3","4","5"].includes(k)||
+    e.key===" "||
+    e.code==="Space"
+  ){
+    e.preventDefault();
+  }
+
+  if(e.repeat)return;
+
+  if(k>="1"&&k<="9"){
+    selectSlot(Number(k));
+    return;
+  }
+
+  if(k==="e")interact();    if(d>5.3)continue;
+
+    const damage=item.type==="bow"?item.damage:state.damage;
+
+    target.hp-=damage;
+
+    if(target.hp<=0){
+      killTarget(target,monster?"monster":"animal");
+    }else{
+      msg("Hit for "+damage+" damage.");
+    }
+
+    updateUI();
+    return;
+  }
+
+  msg(
+    item.type==="bow"
+    ?"Arrow missed."
+    :"Swing! Aim directly at the target."
+  );
+}
+
+function killTarget(target,kind){
+  scene.remove(target.g);
+
+  if(kind==="animal"){
+    animals.splice(
+      animals.indexOf(target),
+      1
+    );
+
+    const meat=
+      target.type==="cow"?3:
+      target.type==="pig"?2:1;
+
+    state.rawMeat+=meat;
+    state.xp+=target.type==="cow"?12:8;
+    msg(
+      "Hunted "+target.type+
+      ". +"+meat+" raw meat."
+    );
+  }else{
+    monsters.splice(
+      monsters.indexOf(target),
+      1
+    );
+
+    state.gold+=
+      target.type==="skeleton"?14:
+      target.type==="slime"?11:12;
+
+    state.xp+=
+      target.type==="skeleton"?24:
+      target.type==="slime"?19:21;
+
+    if(state.quest===1)state.kills++;
+
+    msg(
+      target.type+
+      " defeated! Loot collected."
+    );
+
+    spawnReplacementMonster();
+  }
+}
+
+function spawnReplacementMonster(){
+  const spots=[
+    [5,24,"zombie"],[20,15,"slime"],[61,22,"skeleton"],
+    [78,16,"zombie"],[16,69,"slime"],[73,65,"skeleton"],
+    [31,74,"zombie"],[90,47,"slime"],[51,11,"skeleton"],
+    [7,63,"zombie"],[82,84,"skeleton"],[59,86,"zombie"]
+  ];
+
+  const p=spots[
+    Math.floor(Math.random()*spots.length)
+  ];
+
+  if(
+    !monsters.some(
+      m=>Math.hypot(m.x-(p[0]+.5),m.z-(p[1]+.5))<3
+    )
+  ){
+    addMonster(p[0],p[1],p[2]);
+  }
+}
+
+function hurt(n){
+  if(state.inv>0||state.death>0)return;
+
+  state.inv=.75;
+  state.hp-=n;
+
+  if(state.hp<=0){
+    state.hp=0;
+    state.death=.8;
+    msg("You died! Respawning at the village...");
+  }else{
+    msg("You lost "+n+" HP.");
+  }
+
+  updateUI();
+}
+
+function updatePassiveAnimals(dt){
+  for(const a of animals){
+    if(a.dead)continue;
+
+    a.timer-=dt;
+
+    if(a.timer<=0){
+      a.timer=2.2+Math.random()*4;
+      const radius=5+Math.random()*6;
+      a.targetX=Math.max(3,Math.min(WORLD-3,a.x+(Math.random()-.5)*radius));
+      a.targetZ=Math.max(3,Math.min(WORLD-3,a.z+(Math.random()-.5)*radius));
+    }
+
+    const dx=a.targetX-a.x;
+    const dz=a.targetZ-a.z;
+    const d=Math.hypot(dx,dz);
+
+    if(d>.2){
+      const step=Math.min(a.speed*dt,d);
+      const nx=a.x+dx/d*step;
+      const nz=a.z+dz/d*step;
+
+      if(!blocked(nx,a.z,.18))a.x=nx;
+      if(!blocked(a.x,nz,.18))a.z=nz;
+
+      a.g.position.x=a.x;
+      a.g.position.z=a.z;
+      a.g.position.y=heightAt(a.x,a.z)+.02;
+      a.g.lookAt(a.targetX,a.g.position.y,a.targetZ);
+    }
+  }
+}
+
+function updateVillagers(dt){
+  for(const n of npcs){
+    n.timer-=dt;
+
+    if(n.timer<=0){
+      n.timer=2+Math.random()*4;
+
+      n.targetX=34+
+        (Math.random()-.5)*16;
+
+      n.targetZ=37+
+        (Math.random()-.5)*16;
+    }
+
+    const dx=n.targetX-n.x;
+    const dz=n.targetZ-n.z;
+    const d=Math.hypot(dx,dz);
+
+    if(d>.4){
+      const step=Math.min(.65*dt,d);
+      const nx=n.x+dx/d*step;
+      const nz=n.z+dz/d*step;
+
+      if(!blocked(nx,n.z,.22))n.x=nx;
+      if(!blocked(n.x,nz,.22))n.z=nz;
+
+      n.g.position.x=n.x;
+      n.g.position.z=n.z;
+      n.g.position.y=heightAt(n.x,n.z)+.02;
+      n.g.lookAt(n.targetX,n.g.position.y,n.targetZ);
+    }
+  }
+}
+
+function updateMonsters(dt){
+  for(const m of monsters){
+    if(m.dead)continue;
+
+    m.cooldown-=dt;
+    m.jumpTimer-=dt;
+
+    const dx=state.px-m.x;
+    const dz=state.pz-m.z;
+    const d=Math.hypot(dx,dz);
+
+    if(d<11){
+      const step=Math.min(
+        m.speed*dt,
+        Math.max(0,d-.82)
+      );
+
+      const nx=m.x+(dx/d)*step;
+      const nz=m.z+(dz/d)*step;
+
+      if(!blocked(nx,m.z,.2))m.x=nx;
+      if(!blocked(m.x,nz,.2))m.z=nz;
+
+      m.g.position.x=m.x;
+      m.g.position.z=m.z;
+      m.g.position.y=heightAt(m.x,m.z)+.02;
+
+      if(
+        d<1.3 &&
+        m.cooldown<=0
+      ){
+        m.cooldown=1;
+        hurt(m.damage);
+      }
+
+      if(
+        m.type==="slime"&&
+        m.jumpTimer<=0&&
+        d<5
+      ){
+        m.jumpTimer=1.6;
+        m.g.position.y+=.45;
+      }
+    }
+  }
+}
+
+function updateProjectiles(dt){
+  for(let i=projectiles.length-1;i>=0;i--){
+    const p=projectiles[i];
+
+    p.position.x+=p.userData.dir.x*p.userData.speed*dt;
+    p.position.y+=p.userData.dir.y*p.userData.speed*dt;
+    p.position.z+=p.userData.dir.z*p.userData.speed*dt;
+    p.userData.life-=dt;
+
+    let hit=false;
+
+    for(const m of monsters){
+      if(
+        Math.hypot(
+          p.position.x-m.g.position.x,
+          p.position.z-m.g.position.z
+        )<.7 &&
+        Math.abs(
+          p.position.y-(m.g.position.y+.6)
+        )<1
+      ){
+        m.hp-=p.userData.damage;
+        hit=true;
+
+        if(m.hp<=0){
+          killTarget(m,"monster");
+        }else{
+          msg("Fireball hit!");
+        }
+        break;
+      }
+    }
+
+    if(
+      p.userData.life<=0||
+      p.position.y<0||
+      p.position.y>25||
+      hit
+    ){
+      scene.remove(p);
+      projectiles.splice(i,1);
+    }
+  }
+}
+
+function updateHunger(dt){
+  state.hunger=Math.max(
+    0,
+    state.hunger-dt*(keys.shift?0.12:.085)
+  );
+
+  if(state.hunger<=0){
+    state.hp-=dt*2.4;
+    if(state.hp<=0){
+      state.hp=0;
+      state.death=.8;
+      msg("You starved! Respawning...");
+    }
+  }
+
+  state.mana=Math.min(100,state.mana+dt*3);
+}
+
+function respawn(){
+  state.px=34.5;
+  state.pz=54.5;
+  state.py=groundY(state.px,state.pz);
+  state.vy=0;
+  state.grounded=true;
+  state.hp=100;
+  state.hunger=Math.max(60,state.hunger);
+  state.mana=100;
+  state.inv=2;
+  state.death=0;
+  state.yaw=0;
+  state.pitch=0;
+  msg("Respawned at the village.");
+  updateUI();
+}
+
+function updateCameraAndWeapon(){
+  camera.position.set(
+    state.px,
+    state.py+.52,
+    state.pz
+  );
+
+  camera.rotation.y=state.yaw;
+  camera.rotation.x=state.pitch;
+
+  const selected=selectedItem();
+
+  sword.visible=
+    selected.type==="weapon";
+
+  bow.visible=
+    selected.type==="bow";
+
+  staff.visible=
+    selected.type==="magic";
+
+  if(selected.type==="weapon"){
+    sword.rotation.x=
+      -.53-state.swing*.95;
+
+    sword.rotation.z=
+      .17+state.swing*.48;
+
+    sword.position.y=
+      -.58-state.swing*.08;
+  }
+
+  if(selected.type==="bow"){
+    bow.rotation.z=
+      .25+state.swing*.16;
+  }
+
+  if(selected.type==="magic"){
+    staff.rotation.x=
+      -.45-state.swing*.3;
+  }
+}
+
+function updateUI(){
+  uiEl("hp").textContent=Math.round(state.hp);
+  uiEl("hp2").textContent=
+    Math.round(state.hp)+" / 100";
+  uiEl("hpFill").style.width=
+    Math.max(0,state.hp)+"%";
+
+  uiEl("hunger").textContent=
+    Math.round(state.hunger);
+  uiEl("hunger2").textContent=
+    Math.round(state.hunger)+" / 100";
+  uiEl("hungerFill").style.width=
+    Math.max(0,state.hunger)+"%";
+
+  uiEl("mana").textContent=
+    Math.round(state.mana);
+  uiEl("mana2").textContent=
+    Math.round(state.mana)+" / 100";
+  uiEl("manaFill").style.width=
+    Math.max(0,state.mana)+"%";
+
+  uiEl("weapon").textContent=state.weapon;
+  uiEl("weapon2").textContent=state.weapon;
+  uiEl("gold").textContent=state.gold;
+  uiEl("xp").textContent=state.xp;
+  uiEl("stone").textContent=state.stone;
+  uiEl("wood").textContent=state.wood;
+  uiEl("food").textContent=
+    state.bread+state.rawMeat+state.goldenApples;
+  uiEl("chests").textContent=
+    state.opened+"/"+chests.length;
+
+  if(state.quest===0){
+    uiEl("quest").textContent=
+      "Talk to Elder Mira.";
+  }else if(state.quest===1){
+    uiEl("quest").textContent=
+      "Defeat monsters: "+state.kills+" / 4";
+  }else if(state.quest===2){
+    uiEl("quest").textContent=
+      "Open chests: "+state.opened+" / 2";
+  }else{
+    uiEl("quest").textContent=
+      "Village quests complete.";
+  }
+
+  items.forEach((item,i)=>{
+    let count="";
+    if(item.amountKey){
+      count=state[item.amountKey]>0?
+        state[item.amountKey]:"";
+    }
+
+    const c=document.getElementById("count"+(i+1));
+    if(c)c.textContent=count;
+  });
+
+  document.querySelectorAll(".slot").forEach(s=>{
+    s.classList.toggle(
+      "selected",
+      Number(s.dataset.slot)===state.selected
+    );
+  });
+}
+
+function uiEl(id){
+  return document.getElementById(id);
+}
+
+function msg(text){
+  uiEl("message").textContent=text;
+  uiEl("status").textContent=text;
+}
+
+let mouseLookActive=false;
+
+function applyMouseLook(dx,dy){
+  if(!state.started || (!state.locked && !mouseLookActive))return;
+  if(!Number.isFinite(dx)||!Number.isFinite(dy))return;
+
+  state.yaw-=dx*.0027;
+  state.pitch-=dy*.0023;
+  state.pitch=Math.max(-.62,Math.min(.62,state.pitch));
+}
+
+function tryLock(e){
+  if(e?.preventDefault)e.preventDefault();
+  if(!state.started)return;
+
+  mouseLookActive=true;
+  canvas.focus();
+
+  if(document.pointerLockElement===canvas)return;
+
+  if(typeof canvas.requestPointerLock==="function"){
+    try{
+      const p=canvas.requestPointerLock();
+      if(p&&typeof p.catch==="function"){
+        p.catch(()=>{
+          // Normal mouse movement remains enabled even when Pointer Lock is denied.
+          msg("Mouse look is active. Click LOCK MOUSE for Minecraft-style capture.");
+        });
+      }
+    }catch(err){
+      msg("Mouse look is active. Click LOCK MOUSE for Minecraft-style capture.");
+    }
+  }
+}
+
+canvas.addEventListener("mousedown",e=>{
+  if(!state.started)return;
+  e.preventDefault();
+
+  if(e.button===0){
+    mouseLookActive=true;
+
+    if(document.pointerLockElement===canvas){
+      attack();
+    }else{
+      // Start normal mouse-look immediately, then try Pointer Lock.
+      tryLock(e);
+    }
+  }
+});
+
+canvas.addEventListener("click",e=>{
+  if(!state.started)return;
+  mouseLookActive=true;
+  tryLock(e);
+});
+
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+
+document.addEventListener("pointerlockchange",()=>{
+  state.locked=document.pointerLockElement===canvas;
+  mouseLookActive=state.started || state.locked;
+  uiEl("unlock").style.display=state.locked?"none":"block";
+
+  if(state.locked){
+    msg("MOUSE CAPTURED — move mouse to look. Left click attacks. ESC releases it.");
+    canvas.style.cursor="none";
+  }else if(state.started){
+    msg("Mouse look is active. Click LOCK MOUSE for unlimited camera turning.");
+    canvas.style.cursor="crosshair";
+  }
+});
+
+document.addEventListener("pointerlockerror",()=>{
+  state.locked=false;
+  mouseLookActive=state.started;
+  canvas.style.cursor="crosshair";
+  msg("Mouse look is active. Click LOCK MOUSE for unlimited camera turning.");
+});
+
+// IMPORTANT: use the browser's movementX/movementY globally.
+// This works even when Pointer Lock is unavailable or the cursor is over the HUD.
+window.addEventListener("mousemove",e=>{
+  if(!state.started)return;
+
+  const dx=e.movementX||0;
+  const dy=e.movementY||0;
+
+  if(dx||dy){
+    applyMouseLook(dx,dy);
+  }
+});
+
+window.addEventListener("pointerrawupdate",e=>{
+  if(!state.started || document.pointerLockElement!==canvas)return;
+
+  const dx=e.movementX||0;
+  const dy=e.movementY||0;
+  if(dx||dy)applyMouseLook(dx,dy);
+});
+
+uiEl("unlock").addEventListener("click",e=>{
+  e.preventDefault();
+  mouseLookActive=true;
+  tryLock(e);
+});
+
+const gameStartScreen=document.getElementById("gameStartScreen");
+const playButton=document.getElementById("playButton");
+
+if(gameStartScreen && playButton){
+  playButton.addEventListener("click",function(e){
+    e.preventDefault();
+    e.stopPropagation();
+
+    state.started=true;
+    mouseLookActive=true;
+    canvas.focus();
+
+    gameStartScreen.style.setProperty("display","none","important");
+    gameStartScreen.style.visibility="hidden";
+    gameStartScreen.style.pointerEvents="none";
+
+    msg("WASD = MOVE • Mouse = LOOK • Space = JUMP • ESC = release mouse capture.");
+
+    // Pointer Lock is optional; ordinary mouse-look still works without it.
+    tryLock(e);
+  });
+
+  playButton.addEventListener("pointerdown",function(e){
+    e.preventDefault();
+    e.stopPropagation();
+  });
+}
+
+function setMovementKey(e,down){
+  const map={
+    KeyW:"w",
+    KeyA:"a",
+    KeyS:"s",
+    KeyD:"d",
+    ShiftLeft:"shift",
+    ShiftRight:"shift"
+  };
+
+  const k=map[e.code];
+  if(k){
+    keys[k]=down;
+    if(down){
+      e.preventDefault();
+
+      // Safety net: if PLAY has closed but the state was not activated,
+      // pressing a movement key starts the gameplay input.
+      if(!state.started){
+        const startEl=document.getElementById("gameStartScreen");
+        if(startEl && getComputedStyle(startEl).display==="none"){
+          state.started=true;
+          mouseLookActive=true;
+        }
+      }
+    }
+  }
+}
+
+window.addEventListener("keydown",e=>{
+  setMovementKey(e,true);
+
+  const k=e.key.toLowerCase();
+  if(
+    ["e","r","q","f","2","3","4","5"].includes(k)||
+    e.key===" "||
+    e.code==="Space"
+  ){
+    e.preventDefault();
+  }
+
+  if(e.repeat)return;
+
+  if(k>="1"&&k<="9"){
+    selectSlot(Number(k));
+    return;
+  }
+
+  if(k==="e")interact();
+  else if(k==="r")respawn();
+  else if(k==="q")fireball();
+  else if(k==="f")healMagic();
+  else if(k==="5")mine();
+  else if(e.code==="Space")jump();
+});
+
+window.addEventListener("keyup",e=>{
+  setMovementKey(e,false);
+});
+
+window.addEventListener("blur",()=>{
+  keys.w=false;
+  keys.a=false;
+  keys.s=false;
+  keys.d=false;
+  keys.shift=false;
+});
+
+document.addEventListener("keydown",e=>{
+  // Extra capture path for browsers that deliver keyboard events to the focused element.
+  setMovementKey(e,true);
+});
+
+document.addEventListener("keyup",e=>{
+  setMovementKey(e,false);
+});
+
+canvas.addEventListener("wheel",e=>{
+  if(!state.started)return;
+
+  const direction=e.deltaY>0?1:-1;
+  let n=state.selected+direction;
+
+  if(n>9)n=1;
+  if(n<1)n=9;
+
+  selectSlot(n);
+  e.preventDefault();
+},{passive:false});
+
+window.addEventListener("resize",resize);
+
+function resize(){
+  renderer.setSize(
+    window.innerWidth,
+    window.innerHeight,
+    false
+  );
+  camera.aspect=
+    window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+}
+
+resize();
+buildHotbar();
+updateUI();
+
+let last=performance.now();
+
+let uiTimer=0;
+let worldTimer=0;
+
+function gameLoop(t){
+  requestAnimationFrame(gameLoop);
+
+  const dt=Math.min(
+    .05,
+    (t-last)/1000
+  );
+
+  last=t;
+
+  if(state.started){
+
+    if(state.death>0){
+      state.death-=dt;
+
+      if(state.death<=0){
+        respawn();
+      }
+    }else{
+      // Player input and camera are always updated every frame.
+      move(dt);
+      updateVertical(dt);
+      updateCameraAndWeapon();
+
+      // Background simulation runs less often so keyboard/mouse stay responsive.
+      worldTimer+=dt;
+      if(worldTimer>=.033){
+        const step=worldTimer;
+        worldTimer=0;
+
+        updateVillagers(step);
+        updatePassiveAnimals(step);
+        updateMonsters(step);
+        updateProjectiles(step);
+        updateHunger(step);
+
+        state.inv=Math.max(0,state.inv-step);
+        state.attackCd=Math.max(0,state.attackCd-step);
+        state.swing=Math.max(0,state.swing-step);
+        state.magicFlash=Math.max(0,state.magicFlash-step);
+        state.dayTime+=step;
+      }
+
+      if(state.dayTime>55){
+        state.dayTime=0;
+        state.day=!state.day;
+
+        scene.fog.color.set(
+          state.day?0x83bfe0:0x192740
+        );
+
+        renderer.setClearColor(
+          state.day?0x83bfe0:0x101a2d
+        );
+
+        hemi.intensity=
+          state.day?1.35:.55;
+
+        sun.intensity=
+          state.day?2.55:.55;
+
+        moon.intensity=
+          state.day?.12:.65;
+      }
+
+      uiTimer+=dt;
+      if(uiTimer>=.1){
+        uiTimer=0;
+        updateUI();
+      }
+    }
+  }
+
+  // Flash effect is only updated while the effect is active.
+  if(state.magicFlash>0){
+    renderer.domElement.style.filter=
+      "brightness("+(1+state.magicFlash*.9)+")";
+  }else if(renderer.domElement.style.filter){
+    renderer.domElement.style.filter="";
+  }
+
+  renderer.render(
+    scene,
+    camera
+  );
+}
+
+requestAnimationFrame(gameLoop);
+}
+</script>
+</body>
+</html>    s.classList.toggle(
+      "selected",
+      Number(s.dataset.slot)===state.selected
+    );
+  });
+}
+
+function uiEl(id){
+  return document.getElementById(id);
+}
+
+function msg(text){
+  uiEl("message").textContent=text;
+  uiEl("status").textContent=text;
+}
+
+let mouseLookActive=false;
+
+function applyMouseLook(dx,dy){
+  if(!state.started || (!state.locked && !mouseLookActive))return;
+  if(!Number.isFinite(dx)||!Number.isFinite(dy))return;
+
+  state.yaw-=dx*.0027;
+  state.pitch-=dy*.0023;
+  state.pitch=Math.max(-.62,Math.min(.62,state.pitch));
+}
+
+function tryLock(e){
+  if(e?.preventDefault)e.preventDefault();
+  if(!state.started)return;
+
+  mouseLookActive=true;
+  canvas.focus();
+
+  if(document.pointerLockElement===canvas)return;
+
+  if(typeof canvas.requestPointerLock==="function"){
+    try{
+      const p=canvas.requestPointerLock();
+      if(p&&typeof p.catch==="function"){
+        p.catch(()=>{
+          // Normal mouse movement remains enabled even when Pointer Lock is denied.
+          msg("Mouse look is active. Click LOCK MOUSE for Minecraft-style capture.");
+        });
+      }
+    }catch(err){
+      msg("Mouse look is active. Click LOCK MOUSE for Minecraft-style capture.");
+    }
+  }
+}
+
+canvas.addEventListener("mousedown",e=>{
+  if(!state.started)return;
+  e.preventDefault();
+
+  if(e.button===0){
+    mouseLookActive=true;
+
+    if(document.pointerLockElement===canvas){
+      attack();
+    }else{
+      // Start normal mouse-look immediately, then try Pointer Lock.
+      tryLock(e);
+    }
+  }
+});
+
+canvas.addEventListener("click",e=>{
+  if(!state.started)return;
+  mouseLookActive=true;
+  tryLock(e);
+});
+
+canvas.addEventListener("contextmenu",e=>e.preventDefault());
+
+document.addEventListener("pointerlockchange",()=>{
+  state.locked=document.pointerLockElement===canvas;
+  mouseLookActive=state.started || state.locked;
+  uiEl("unlock").style.display=state.locked?"none":"block";
+
+  if(state.locked){
+    msg("MOUSE CAPTURED — move mouse to look. Left click attacks. ESC releases it.");
+    canvas.style.cursor="none";
+  }else if(state.started){
+    msg("Mouse look is active. Click LOCK MOUSE for unlimited camera turning.");
+    canvas.style.cursor="crosshair";
+  }
+});
+
+document.addEventListener("pointerlockerror",()=>{
+  state.locked=false;
+  mouseLookActive=state.started;
+  canvas.style.cursor="crosshair";
+  msg("Mouse look is active. Click LOCK MOUSE for unlimited camera turning.");
+});
+
+// IMPORTANT: use the browser's movementX/movementY globally.
+// This works even when Pointer Lock is unavailable or the cursor is over the HUD.
+window.addEventListener("mousemove",e=>{
+  if(!state.started)return;
+
+  const dx=e.movementX||0;
+  const dy=e.movementY||0;
+
+  if(dx||dy){
+    applyMouseLook(dx,dy);
+  }
+});
+
+window.addEventListener("pointerrawupdate",e=>{
+  if(!state.started || document.pointerLockElement!==canvas)return;
+
+  const dx=e.movementX||0;
+  const dy=e.movementY||0;
+  if(dx||dy)applyMouseLook(dx,dy);
+});
+
+uiEl("unlock").addEventListener("click",e=>{
+  e.preventDefault();
+  mouseLookActive=true;
+  tryLock(e);
+});
+
+const gameStartScreen=document.getElementById("gameStartScreen");
+const playButton=document.getElementById("playButton");
+
+if(gameStartScreen && playButton){
+  playButton.addEventListener("click",function(e){
+    e.preventDefault();
+    e.stopPropagation();
+
+    state.started=true;
+    mouseLookActive=true;
+    canvas.focus();
+
+    gameStartScreen.style.setProperty("display","none","important");
+    gameStartScreen.style.visibility="hidden";
+    gameStartScreen.style.pointerEvents="none";
+
+    msg("WASD = MOVE • Mouse = LOOK • Space = JUMP • ESC = release mouse capture.");
+
+    // Pointer Lock is optional; ordinary mouse-look still works without it.
+    tryLock(e);
+  });
+
+  playButton.addEventListener("pointerdown",function(e){
+    e.preventDefault();
+    e.stopPropagation();
+  });
+}
+
+function setMovementKey(e,down){
+  const map={
+    KeyW:"w",
+    KeyA:"a",
+    KeyS:"s",
+    KeyD:"d",
+    ShiftLeft:"shift",
+    ShiftRight:"shift"
+  };
+
+  const k=map[e.code];
+  if(k){
+    keys[k]=down;
+    if(down){
+      e.preventDefault();
+
+      // Safety net: if PLAY has closed but the state was not activated,
+      // pressing a movement key starts the gameplay input.
+      if(!state.started){
+        const startEl=document.getElementById("gameStartScreen");
+        if(startEl && getComputedStyle(startEl).display==="none"){
+          state.started=true;
+          mouseLookActive=true;
+        }
+      }
+    }
+  }
+}
+
+window.addEventListener("keydown",e=>{
+  setMovementKey(e,true);
+
+  const k=e.key.toLowerCase();
+  if(
+    ["e","r","q","f","2","3","4","5"].includes(k)||
+    e.key===" "||
+    e.code==="Space"
+  ){
+    e.preventDefault();
+  }
+
+  if(e.repeat)return;
+
+  if(k>="1"&&k<="9"){
+    selectSlot(Number(k));
+    return;
+  }
+
+  if(k==="e")interact();
+  else if(k==="r")respawn();
+  else if(k==="q")fireball();
+  else if(k==="f")healMagic();
+  else if(k==="5")mine();
+  else if(e.code==="Space")jump();
+});
+
+window.addEventListener("keyup",e=>{
+  setMovementKey(e,false);
+});
+
+window.addEventListener("blur",()=>{
+  keys.w=false;
+  keys.a=false;
+  keys.s=false;
+  keys.d=false;
+  keys.shift=false;
+});
+
+document.addEventListener("keydown",e=>{
+  // Extra capture path for browsers that deliver keyboard events to the focused element.
+  setMovementKey(e,true);
+});
+
+document.addEventListener("keyup",e=>{
+  setMovementKey(e,false);
+});
+
+canvas.addEventListener("wheel",e=>{
+  if(!state.started)return;
+
+  const direction=e.deltaY>0?1:-1;
+  let n=state.selected+direction;
+
+  if(n>9)n=1;
+  if(n<1)n=9;
+
+  selectSlot(n);
+  e.preventDefault();
+},{passive:false});
+
+window.addEventListener("resize",resize);
+
+function resize(){
+  renderer.setSize(
+    window.innerWidth,
+    window.innerHeight,
+    false
+  );
+  camera.aspect=
+    window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+}
+
+resize();
+buildHotbar();
+updateUI();
+
+let last=performance.now();
+
+let uiTimer=0;
+let worldTimer=0;
+
+function gameLoop(t){
+  requestAnimationFrame(gameLoop);
+
+  const dt=Math.min(
+    .05,
+    (t-last)/1000
+  );
+
+  last=t;
+
+  if(state.started){
+
+    if(state.death>0){
+      state.death-=dt;
+
+      if(state.death<=0){
+        respawn();
+      }
+    }else{
+      // Player input and camera are always updated every frame.
+      move(dt);
+      updateVertical(dt);
+      updateCameraAndWeapon();
+
+      // Background simulation runs less often so keyboard/mouse stay responsive.
+      worldTimer+=dt;
+      if(worldTimer>=.033){
+        const step=worldTimer;
+        worldTimer=0;
+
+        updateVillagers(step);
+        updatePassiveAnimals(step);
+        updateMonsters(step);
+        updateProjectiles(step);
+        updateHunger(step);
+
+        state.inv=Math.max(0,state.inv-step);
+        state.attackCd=Math.max(0,state.attackCd-step);
+        state.swing=Math.max(0,state.swing-step);
+        state.magicFlash=Math.max(0,state.magicFlash-step);
+        state.dayTime+=step;
+      }
+
+      if(state.dayTime>55){
+        state.dayTime=0;
+        state.day=!state.day;
+
+        scene.fog.color.set(
+          state.day?0x83bfe0:0x192740
+        );
+
+        renderer.setClearColor(
+          state.day?0x83bfe0:0x101a2d
+        );
+
+        hemi.intensity=
+          state.day?1.35:.55;
+
+        sun.intensity=
+          state.day?2.55:.55;
+
+        moon.intensity=
+          state.day?.12:.65;
+      }
+
+      uiTimer+=dt;
+      if(uiTimer>=.1){
+        uiTimer=0;
+        updateUI();
+      }
+    }
+  }
+
+  // Flash effect is only updated while the effect is active.
+  if(state.magicFlash>0){
+    renderer.domElement.style.filter=
+      "brightness("+(1+state.magicFlash*.9)+")";
+  }else if(renderer.domElement.style.filter){
+    renderer.domElement.style.filter="";
+  }
+
+  renderer.render(
+    scene,
+    camera
+  );
+}
+
+requestAnimationFrame(gameLoop);
+}
+</script>
+</body>
+</html>
