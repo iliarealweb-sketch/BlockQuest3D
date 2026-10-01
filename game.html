@@ -28,6 +28,10 @@ canvas{display:block;width:100%;height:100%;image-rendering:auto;cursor:crosshai
 .slot small{position:absolute;left:4px;top:2px;font-size:10px;color:#fff}
 .slot em{position:absolute;right:4px;bottom:2px;font-size:10px;font-style:normal;color:#fff}
 #hint{position:absolute;right:12px;bottom:86px;color:#fff;font-size:10px;padding:5px 8px;border-radius:7px;background:rgba(0,0,0,.38);text-shadow:0 2px 4px #000;pointer-events:none}
+#movePad{position:absolute;left:16px;bottom:18px;z-index:20;display:grid;grid-template-columns:46px 46px 46px;grid-template-rows:46px 46px 46px;gap:5px;user-select:none;touch-action:none}
+#movePad button{border:1px solid rgba(255,255,255,.32);border-radius:9px;background:rgba(15,22,29,.72);color:#fff;font-size:18px;font-weight:900;padding:0;touch-action:none}
+#movePad .up{grid-column:2}.left{grid-column:1;grid-row:2}.down{grid-column:2;grid-row:3}.right{grid-column:3;grid-row:2}
+#movePad .sprint{grid-column:1 / span 3;grid-row:4;width:147px;height:30px;font-size:11px}
 #error{position:absolute;left:6%;right:6%;top:8%;bottom:8%;display:none;z-index:30;background:#281216;color:#fff;border:1px solid #a04b58;border-radius:12px;padding:18px;white-space:pre-wrap;overflow:auto}
 @media(max-width:850px){#panel{width:215px}.slot{width:48px;height:48px;font-size:21px}#message{bottom:84px}}
 </style>
@@ -88,6 +92,13 @@ background:rgba(8,12,18,.94);pointer-events:auto;visibility:visible;opacity:1;">
 
 <div id="hotbar"></div>
 <div id="hint">MOVE MOUSE = look. Click LOCK MOUSE for unlimited turning. ESC = release.</div>
+<div id="movePad" aria-label="Movement controls">
+<button class="up" data-key="w">▲</button>
+<button class="left" data-key="a">◀</button>
+<button class="down" data-key="s">▼</button>
+<button class="right" data-key="d">▶</button>
+<button class="sprint" data-key="shift">SPRINT</button>
+</div>
 <div id="error"></div>
 </div>
 
