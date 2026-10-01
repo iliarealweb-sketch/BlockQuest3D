@@ -1,0 +1,13 @@
+{
+  "name": "blockquest3d",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BlockQuest 3D desktop game",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "41.0.2"
+  }
+}
