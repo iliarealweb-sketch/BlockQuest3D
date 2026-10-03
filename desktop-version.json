@@ -1,5 +1,5 @@
 {
-  "version": "1.0.5",
+  "version": "1.0.6",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "Fix black screen after PLAY and add ambient adventure vibe music"
+  "notes": "Visible pixel-art textures added across the world and characters"
 }
