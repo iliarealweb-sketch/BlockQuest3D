@@ -1,5 +1,5 @@
 {
-  "version": "1.1.3",
+  "version": "1.1.4",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "Three.js is embedded in the game file, so startup no longer depends on the internet"
+  "notes": "Three.js is built into the game file; no CDN, dynamic import, or external engine download is needed"
 }
