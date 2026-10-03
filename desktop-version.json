@@ -1,6 +1,5 @@
 {
-  "version": "3.1.2",
+  "version": "4.0.0",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "3.1.2 updater repair: stronger cache bypass, supports game_url/url, safer version detection, writable update replacement, and checks every 30 minutes."
+  "notes": "Classic Archive Edition: uses a pinned snapshot of the archived classic.minecraft.net client code. Mojang-era game textures/assets are fetched by that archived client rather than repackaged into BlockQuest."
 }
