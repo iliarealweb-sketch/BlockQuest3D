@@ -167,6 +167,16 @@ background:rgba(8,12,18,.94);pointer-events:auto;visibility:visible;opacity:1;">
       window.__bqActivateGame();
     }
   }catch(e){
+    const screen=document.getElementById("gameStartScreen");
+    const button=document.getElementById("playButton");
+    const note=screen?.querySelector("[data-loading-note]");
+    if(button){
+      button.disabled=false;
+      button.textContent="RETRY";
+      button.style.opacity="1";
+      button.style.cursor="pointer";
+    }
+    if(note)note.textContent="The game had a loading error. Click RETRY.";
     errorBox.style.display="block";
     errorBox.textContent="Game failed to load.\\n\\n"+(e?.stack||e);
   }
@@ -532,12 +542,12 @@ function makeTerrain(){
   let cursor=0;
 
   const stream=()=>{
-    const end=Math.min(cursor+3,pending.length);
+    const end=Math.min(cursor+1,pending.length);
     for(;cursor<end;cursor++)buildChunk(pending[cursor]);
     if(cursor<pending.length)setTimeout(stream,16);
   };
 
-  setTimeout(stream,150);
+  requestAnimationFrame(stream);
 
   const water=new THREE.Mesh(
     new THREE.PlaneGeometry(WORLD,WORLD),
