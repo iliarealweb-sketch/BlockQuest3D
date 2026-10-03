@@ -1,5 +1,6 @@
 {
-  "version": "3.1.0",
+  "version": "3.1.2",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "Ultra graphics: 1024px texture atlas, richer lighting, dynamic daylight, actor culling/cache, anisotropic filtering and adaptive resolution"
+  "url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
+  "notes": "3.1.2 updater repair: stronger cache bypass, supports game_url/url, safer version detection, writable update replacement, and checks every 30 minutes."
 }
