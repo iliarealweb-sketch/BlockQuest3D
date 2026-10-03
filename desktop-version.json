@@ -1,5 +1,5 @@
 {
-  "version": "1.1.5",
+  "version": "2.0.0",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "Render distance limited to about 34 blocks for textured terrain; far terrain is lightweight and nearby detail streams gradually"
+  "notes": "Doom-style compatibility engine: Canvas software raycaster, low internal resolution, no WebGL, no Three.js, no CDN, no external assets"
 }
