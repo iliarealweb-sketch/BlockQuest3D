@@ -1,24 +1,42 @@
 <!doctype html>
-<html lang="en">
+<!--[if lt IE 7]><html class="no-js ie ie6 lt-ie9 lt-ie8 lt-ie7" lang="sv-SE"> <![endif]-->
+<!--[if IE 7]><html class="no-js ie ie7 lt-ie9 lt-ie8" lang="sv-SE"> <![endif]-->
+<!--[if IE 8]><html class="no-js ie ie8 lt-ie9" lang="sv-SE"> <![endif]-->
+<!--[if gt IE 8]><!-->
+<html class="no-js" lang="sv-SE" prefix="og: http://ogp.me/ns#"> <!--<![endif]-->
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Minecraft Classic Archive — BlockQuest 4.0.1</title>
+    <meta charset="UTF-8"/>
+    <title>Minecraft Classic — BlockQuest Desktop</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="google" content="notranslate" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+<link href="https://cdn.jsdelivr.net/gh/SajagIN/minecraft-classic@22d79dfae142528bee659fc957fb01a93331b37f/assets/css/style.css" rel="stylesheet">
 <style>
-html,body{margin:0;width:100%;height:100%;background:#111;overflow:hidden}
-#status{position:fixed;left:0;right:0;top:0;padding:10px;text-align:center;
-font:14px Arial,sans-serif;color:#fff;background:rgba(0,0,0,.65);z-index:10}
+html,body{margin:0;width:100%;height:100%;overflow:hidden}
+#blockquest-desktop-badge{position:fixed;top:6px;right:8px;z-index:9999;padding:4px 8px;
+font:700 10px Arial,sans-serif;color:#fff;background:rgba(0,0,0,.45);border-radius:5px;
+pointer-events:none}
 </style>
 </head>
 <body>
-<div id="status">BlockQuest 3D 4.0.1 — loading the archived Minecraft Classic client…</div>
-<script>
-"use strict";
-const CLASSIC_URL="https://cdn.jsdelivr.net/gh/SajagIN/minecraft-classic@22d79dfae142528bee659fc957fb01a93331b37f/index.html";
-const FALLBACK="https://raw.githack.com/SajagIN/minecraft-classic/22d79dfae142528bee659fc957fb01a93331b37f/index.html";
-document.getElementById("status").textContent="Loading Minecraft Classic 0.30 code and its archived textures…";
-setTimeout(()=>location.replace(CLASSIC_URL),40);
-</script>
-<noscript>JavaScript is required to run the archived Minecraft Classic client.</noscript>
+<div id="blockquest-desktop-badge">BlockQuest Desktop • Minecraft Classic 0.30</div>
+<div class="page-content">
+    <main role="main" class="u-main">
+    </main>
+</div>
+<div id="hide"><textarea class="js-copytextarea">url_to_copy</textarea></div>
+<div id="version"></div>
+<div id="hotbar"></div>
+<div id="previewWindow"></div>
+<div id="chat"></div>
+<div id="menu"></div>
+<div id="progress"></div>
+<div id="overlay"></div>
+<div id="mobile"><div id="text_vertical"><P><H2>Sorry!</H2></P><P>This version of Minecraft<br>requires a keyboard.</P><P>Please try again on another device.</P></div></div>
+<div id="webgl_webrtc"><div id="text_vertical"><P><H2>Sorry!</H2></P><P>It seems like your browser doesn’t support<br>WebGL or WebRTC that is required to run this game.<P><P>Find a new one at <a href="https://browsehappy.com" target="_blank">https://browsehappy.com</a></P></div></div>
+
+<script src="https://cdn.jsdelivr.net/gh/SajagIN/minecraft-classic@22d79dfae142528bee659fc957fb01a93331b37f/assets/js/app.js"></script>
 </body>
 </html>
