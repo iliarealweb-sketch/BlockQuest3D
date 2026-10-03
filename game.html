@@ -13,11 +13,12 @@ canvas{display:block;width:100%;height:100%;cursor:crosshair}
 #panel{position:fixed;right:12px;top:42px;width:245px;background:rgba(8,13,18,.74);border:1px solid rgba(255,255,255,.22);border-radius:10px;padding:9px;color:#fff;font-size:11px;z-index:5;backdrop-filter:blur(4px)}
 .row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.11)}
 .box{margin-top:6px;padding:6px;border:1px solid rgba(255,255,255,.12);border-radius:6px;line-height:1.35}
-#hotbar{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:4px;padding:5px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.22);border-radius:9px;z-index:6}
-.slot{width:54px;height:54px;background:rgba(35,40,44,.86);border:2px solid #656b71;border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;font-size:24px}
+#hotbar{position:fixed;left:50%;bottom:10px;transform:translateX(-50%);display:flex;gap:4px;padding:6px;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.28);border-radius:10px;z-index:8;box-shadow:0 8px 28px rgba(0,0,0,.35);user-select:none}
+.slot{width:54px;height:54px;background:rgba(35,40,44,.92);border:2px solid #656b71;border-radius:7px;display:flex;align-items:center;justify-content:center;position:relative;font-size:24px;cursor:pointer;transition:transform .08s ease,border-color .08s ease,box-shadow .08s ease}.slot:hover{transform:translateY(-2px)}
 .slot.sel{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.18)}
 .slot small{position:absolute;left:4px;top:2px;font-size:10px}.slot em{position:absolute;right:4px;bottom:2px;font-size:10px;font-style:normal}
 #cross{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:#fff;font-size:21px;font-weight:900;text-shadow:2px 2px #000;z-index:4;pointer-events:none}
+#barHint{position:fixed;left:50%;bottom:3px;transform:translateX(-50%);color:rgba(255,255,255,.82);font-size:10px;font-weight:700;z-index:8;pointer-events:none;text-shadow:1px 1px 2px #000}
 #msg{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);padding:7px 10px;background:rgba(0,0,0,.45);color:#fff;border-radius:7px;font-size:12px;z-index:7;pointer-events:none}
 #start{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#6e9eb7,#263844)}
 .card{width:min(680px,92vw);padding:32px;text-align:center;border:1px solid rgba(255,255,255,.35);border-radius:18px;background:rgba(11,15,19,.88);box-shadow:0 30px 90px #000}
@@ -48,17 +49,17 @@ canvas{display:block;width:100%;height:100%;cursor:crosshair}
   <div class="row"><span>Food</span><b id="food">0</b></div>
   <div class="row"><span>Chests</span><b id="chests">0/7</b></div>
   <div class="box"><b>Quest</b><br><span id="quest">Talk to Elder Mira.</span></div>
-  <div class="box">WASD move · SHIFT sprint · SPACE jump<br>Mouse look · LEFT CLICK attack<br>E interact · Q fireball · F heal · R respawn<br>1-9 hotbar · C camera · ESC release mouse</div>
+  <div class="box">WASD move · SHIFT sprint · SPACE jump<br>Mouse look · LEFT CLICK attack / mine<br>E interact · Q fireball · F heal · R respawn<br>1-9 hotbar · C camera · ESC release mouse</div>
 </aside>
-<div id="hotbar"></div>
+<div id="hotbar"></div><div id="barHint">LEFT CLICK: ATTACK / MINE · 1–9 SELECT · WHEEL CHANGE</div>
 <div id="cross">+</div>
 <div id="msg">Click PLAY to start</div>
 <div id="start">
   <div class="card">
     <h1>BLOCKQUEST 3D</h1>
-    <h2>ULTRA — HIGH QUALITY 3D EDITION</h2>
+    <h2>ULTRA — MINING + COMBAT EDITION</h2>
     <button id="play">▶ PLAY</button>
-    <div id="quality">Native WebGL renderer · procedural 512px texture atlas · dynamic fog · detailed terrain · third-person camera toggle<br>No Three.js, no CDN, no external assets.</div>
+    <div id="quality">Native WebGL renderer · procedural 1024px texture atlas · dynamic fog · detailed terrain · third-person camera toggle<br>No Three.js, no CDN, no external assets.</div>
   </div>
 </div>
 <pre id="err"></pre>
@@ -108,6 +109,7 @@ uniform sampler2D uTex;
 uniform vec3 uCam;
 uniform vec3 uSun;
 uniform vec3 uSunColor;
+uniform vec3 uSky;
 uniform vec3 uFog;
 uniform float uFogNear;
 uniform float uFogFar;
@@ -118,15 +120,23 @@ void main(){
   vec3 L=normalize(uSun);
   vec3 V=normalize(uCam-vWorld);
   vec3 H=normalize(L+V);
+
   float ndl=max(dot(n,L),0.0);
-  float hemi=.20+.34*max(n.y,0.0);
-  float spec=pow(max(dot(n,H),0.0),32.0)*(.025+.11*ndl);
-  vec3 c=tex.rgb*(hemi+ndl*.74*uExposure)+uSunColor*spec;
-  c=1.0-exp(-c*1.18);
-  c=pow(max(c,0.0),vec3(.95));
+  float hemi=.23+.30*max(n.y,0.0);
+  float spec=pow(max(dot(n,H),0.0),32.0)*(.035+.10*ndl);
+
+  vec3 c=tex.rgb*(hemi+ndl*.72*uExposure)+uSunColor*spec;
+
+  // Gentle filmic-style lift without a costly post-processing pass.
+  c=1.0-exp(-c*1.15);
+  c=pow(max(c,0.0),vec3(.96));
+
   float d=distance(vWorld,uCam);
   float fog=smoothstep(uFogNear,uFogFar,d);
   c=mix(c,uFog,fog);
+
+  // Subtle vignette keeps the center readable.
+  vec2 p=gl_FragCoord.xy/uFogFar;
   gl_FragColor=vec4(c,1.0);
 }`;
 
@@ -156,6 +166,7 @@ const loc={
   fogNear:gl.getUniformLocation(prog,"uFogNear"),
   fogFar:gl.getUniformLocation(prog,"uFogFar"),
   sunColor:gl.getUniformLocation(prog,"uSunColor"),
+  sky:gl.getUniformLocation(prog,"uSky"),
   exposure:gl.getUniformLocation(prog,"uExposure")
 };
 
@@ -253,8 +264,6 @@ gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
 gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
 gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
 gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
-const aniso=gl.getExtension("EXT_texture_filter_anisotropic")||gl.getExtension("MOZ_EXT_texture_filter_anisotropic")||gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic");
-if(aniso){const max=gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT);gl.texParameterf(gl.TEXTURE_2D,aniso.TEXTURE_MAX_ANISOTROPY_EXT,Math.min(4,max));}
 gl.generateMipmap(gl.TEXTURE_2D);
 
 const A=1024,TS=256;
@@ -263,11 +272,18 @@ function uvTile(id,u,v){
   return [x+u*TS/A,y+v*TS/A];
 }
 const verts=[],normals=[],uvs=[];
-function face(p0,p1,p2,p3,n,id,scale=1){
+const terrainVerts=[],terrainNormals=[],terrainUvs=[];
+function pushFace(P,N,U,p0,p1,p2,p3,n,id,scale=1){
   const pts=[p0,p1,p2,p0,p2,p3];
-  for(const p of pts){verts.push(p[0],p[1],p[2]);normals.push(n[0],n[1],n[2]);}
+  for(const p of pts){P.push(p[0],p[1],p[2]);N.push(n[0],n[1],n[2]);}
   const uv=[[0,0],[scale,0],[scale,scale],[0,0],[scale,scale],[0,scale]];
-  for(const q of uv){const t=uvTile(id,(q[0]%1+1)%1,(q[1]%1+1)%1);uvs.push(t[0],t[1]);}
+  for(const q of uv){const t=uvTile(id,(q[0]%1+1)%1,(q[1]%1+1)%1);U.push(t[0],t[1]);}
+}
+function face(p0,p1,p2,p3,n,id,scale=1){
+  pushFace(verts,normals,uvs,p0,p1,p2,p3,n,id,scale);
+}
+function terrainFace(p0,p1,p2,p3,n,id,scale=1){
+  pushFace(terrainVerts,terrainNormals,terrainUvs,p0,p1,p2,p3,n,id,scale);
 }
 function box(x,y,z,w,h,d,id,scale=1){
   const x0=x-w/2,x1=x+w/2,y0=y,y1=y+h,z0=z-d/2,z1=z+d/2;
@@ -280,7 +296,7 @@ function box(x,y,z,w,h,d,id,scale=1){
 }
 function quad(p0,p1,p2,p3,n,id,scale=1){face(p0,p1,p2,p3,n,id,scale)}
 
-const SIZE=96,half=SIZE/2;
+const SIZE=160,half=SIZE/2;
 const heights=Array.from({length:SIZE+1},()=>Array(SIZE+1).fill(0));
 function terrainH(x,z){
   const a=2.2*Math.sin(x*.08)+2.0*Math.cos(z*.065)+1.3*Math.sin((x+z)*.045);
@@ -297,7 +313,7 @@ for(let z=0;z<SIZE;z++)for(let x=0;x<SIZE;x++){
   const x0=x-half,x1=x+1-half,z0=z-half,z1=z+1-half;
   const y00=heights[z][x],y10=heights[z][x+1],y01=heights[z+1][x],y11=heights[z+1][x+1];
   const p0=[x0,y00,z0],p1=[x1,y10,z0],p2=[x1,y11,z1],p3=[x0,y01,z1];
-  quad(p0,p1,p2,p3,[0,1,0],0,1);
+  terrainFace(p0,p1,p2,p3,[0,1,0],0,1);
 }
 
 function hAt(x,z){
@@ -311,12 +327,12 @@ for(let z=0;z<SIZE;z++)for(let x=0;x<SIZE;x++){
   if(Math.abs(east-y)>.65){
     const lo=Math.min(y,east),hi=Math.max(y,east);
     const xx=x+1-half;
-    quad([xx,lo,z-half+.98],[xx,lo,z-half],[xx,hi,z-half],[xx,hi,z-half+.98],[1,0,0],1,.7);
+    terrainFace([xx,lo,z-half+.98],[xx,lo,z-half],[xx,hi,z-half],[xx,hi,z-half+.98],[1,0,0],1,.7);
   }
   if(Math.abs(south-y)>.65){
     const lo=Math.min(y,south),hi=Math.max(y,south);
     const zz=z+1-half;
-    quad([x-half+.98,lo,zz],[x-half,lo,zz],[x-half,hi,zz],[x-half+.98,hi,zz],[0,0,1],1,.7);
+    terrainFace([x-half+.98,lo,zz],[x-half,lo,zz],[x-half,hi,zz],[x-half+.98,hi,zz],[0,0,1],1,.7);
   }
 }
 
@@ -395,12 +411,25 @@ for(const c of chests){
 function buffer(data,usage){
   const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data,usage);return b;
 }
+let terrainVbo=buffer(new Float32Array(terrainVerts),gl.DYNAMIC_DRAW);
+let terrainNbo=buffer(new Float32Array(terrainNormals),gl.DYNAMIC_DRAW);
+let terrainTbo=buffer(new Float32Array(terrainUvs),gl.DYNAMIC_DRAW);
+let terrainCount=terrainVerts.length/3;
 const vbo=buffer(new Float32Array(verts),gl.STATIC_DRAW);
 const nbo=buffer(new Float32Array(normals),gl.STATIC_DRAW);
 const tbo=buffer(new Float32Array(uvs),gl.STATIC_DRAW);
 const worldCount=verts.length/3;
+function rebuildTerrainGPU(){
+  gl.bindBuffer(gl.ARRAY_BUFFER,terrainVbo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(terrainVerts),gl.DYNAMIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,terrainNbo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(terrainNormals),gl.DYNAMIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,terrainTbo);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(terrainUvs),gl.DYNAMIC_DRAW);
+  terrainCount=terrainVerts.length/3;
+}
 
 // Actor state.
+const ACTOR_VIEW=62;
+const ACTOR_VIEW_SQ=ACTOR_VIEW*ACTOR_VIEW;
+
 const actorDefs=[
  {x:-20,z:18,type:"zombie",hp:60,max:60,spd:.7,damage:7},
  {x:24,z:21,type:"skeleton",hp:50,max:50,spd:1.0,damage:9},
@@ -443,6 +472,7 @@ const items=[
 
 function hud(id,v){const e=document.getElementById(id);if(e)e.textContent=v}
 function updateUI(){
+  makeHotbar();
   hud("hp",Math.round(player.hp));hud("hun",Math.round(player.hunger));hud("mana",Math.round(player.mana));
   hud("weapon",items[player.selected-1].name);hud("xp",Math.round(player.xp));hud("gold",Math.round(player.gold));
   hud("hp2",Math.round(player.hp)+" / 100");hud("hun2",Math.round(player.hunger)+" / 100");hud("mana2",Math.round(player.mana)+" / 100");
@@ -490,15 +520,20 @@ document.getElementById("play").onclick=()=>{
   document.getElementById("start").style.display="none";
   canvas.focus();
   startMusic();
-  msg("WASD = MOVE · Mouse = LOOK · C = CAMERA");
+  makeHotbar();updateUI();msg("WASD = MOVE · Mouse = LOOK · LEFT CLICK = ATTACK / MINE · C = CAMERA");
 };
 canvas.addEventListener("mousedown",e=>{
   if(!started)return;
   if(e.button===0){
     if(canvas.requestPointerLock)try{canvas.requestPointerLock()}catch{}
-    attack();
+    attackOrMine();
   }
 });
+canvas.addEventListener("wheel",e=>{
+  if(!started)return;
+  selectSlot((player.selected + (e.deltaY>0?1:8)-1)%9+1);
+  e.preventDefault();
+},{passive:false});
 document.addEventListener("pointerlockchange",()=>{
   locked=document.pointerLockElement===canvas;
   msg(locked?"Mouse captured · C = third person":"Click the game to capture mouse · C = third person");
@@ -581,23 +616,83 @@ function interact(){
   updateUI();
 }
 function attack(){
-  if(player.attackCd>0)return;
+  if(player.attackCd>0)return false;
   player.attackCd=.28;player.flash=.08;
   const it=items[player.selected-1];
   if(it.type==="food"){
     const k=it.key;
     if(player[k]>0){player[k]--;player.hunger=Math.min(100,player.hunger+(k==="bread"?24:k==="meat"?18:40));msg("Ate "+it.name)}
     else msg("You don't have "+it.name);
-    updateUI();return;
+    updateUI();return true;
   }
   const t=targetAim(enemies,12)||targetAim(animals,7);
-  if(!t){msg(it.type==="ranged"?"Arrow missed":"Swing!");return}
+  if(!t)return false;
   t.hp-=it.damage||6;
   if(t.hp<=0){
     if(enemies.includes(t)){enemies.splice(enemies.indexOf(t),1);player.kills++;player.gold+=12;player.xp+=20;msg(t.type+" defeated")}
     else{animals.splice(animals.indexOf(t),1);player.meat+=t.type==="cow"?3:t.type==="pig"?2:1;player.xp+=8;msg("Hunted "+t.type)}
     updateUI();
   }else msg("Hit for "+(it.damage||6));
+  return true;
+}
+function viewRay(){
+  const ox=player.x,oy=player.y+.25,oz=player.z;
+  const cp=Math.cos(player.pitch),sp=Math.sin(player.pitch);
+  const dx=Math.cos(player.yaw)*cp,dy=sp,dz=Math.sin(player.yaw)*cp;
+  return {ox,oy,oz,dx,dy,dz};
+}
+function raycastTerrain(max=8){
+  const r=viewRay();
+  let last=null;
+  for(let t=.35;t<=max;t+=.14){
+    const x=r.ox+r.dx*t,z=r.oz+r.dz*t,y=r.oy+r.dy*t;
+    if(x<=-half+1||x>=half-1||z<=-half+1||z>=half-1)continue;
+    const gy=hAt(x,z);
+    if(y<=gy+.18 && y>=gy-1.4){
+      const gx=Math.floor(x+half),gz=Math.floor(z+half);
+      if(gx>=0&&gx<SIZE&&gz>=0&&gz<SIZE)return {x,z,gx,gz,ground:gy,t};
+    }
+    last={x,z,y};
+  }
+  return null;
+}
+function mineTerrain(){
+  if(player.attackCd>0)return false;
+  const hit=raycastTerrain(8);
+  if(!hit)return false;
+  const {gx,gz}=hit;
+  const corners=[[gz,gx],[gz,gx+1],[gz+1,gx],[gz+1,gx+1]];
+  const avg=corners.reduce((sum,[z,x])=>sum+heights[z][x],0)/4;
+  const lower=Math.max(-3.5,avg-1.2);
+  for(const [z,x] of corners)heights[z][x]=Math.min(heights[z][x],lower);
+  terrainVerts.length=terrainNormals.length=terrainUvs.length=0;
+  for(let z=0;z<SIZE;z++)for(let x=0;x<SIZE;x++){
+    const x0=x-half,x1=x+1-half,z0=z-half,z1=z+1-half;
+    const y00=heights[z][x],y10=heights[z][x+1],y01=heights[z+1][x],y11=heights[z+1][x+1];
+    terrainFace([x0,y00,z0],[x1,y10,z0],[x1,y11,z1],[x0,y01,z1],[0,1,0],0,1);
+  }
+  for(let z=0;z<SIZE;z++)for(let x=0;x<SIZE;x++){
+    const y=heights[z][x],east=heights[z][x+1],south=heights[z+1][x];
+    if(Math.abs(east-y)>.65){
+      const lo=Math.min(y,east),hi=Math.max(y,east),xx=x+1-half;
+      terrainFace([xx,lo,z-half+.98],[xx,lo,z-half],[xx,hi,z-half],[xx,hi,z-half+.98],[1,0,0],1,.7);
+    }
+    if(Math.abs(south-y)>.65){
+      const lo=Math.min(y,south),hi=Math.max(y,south),zz=z+1-half;
+      terrainFace([x-half+.98,lo,zz],[x-half,lo,zz],[x-half,hi,zz],[x-half+.98,hi,zz],[0,0,1],1,.7);
+    }
+  }
+  rebuildTerrainGPU();
+  player.stone++;player.xp+=2;player.attackCd=.18;msg("Block mined · +1 stone");updateUI();
+  return true;
+}
+function attackOrMine(){
+  if(!started)return;
+  const it=items[player.selected-1];
+  if(it.type==="food"){attack();return}
+  if(attack())return;
+  if(mineTerrain())return;
+  msg("Nothing in range");
 }
 function fireball(){
   if(player.mana<18){msg("Not enough mana");return}
@@ -626,7 +721,7 @@ function enemyAI(dt){
   }
   for(const a of animals){
     a.timer=(a.timer??Math.random()*2)-dt;
-    if(a.timer<=0){a.timer=2.5+Math.random()*4;a.tx=Math.max(-42,Math.min(42,a.x+(Math.random()-.5)*10));a.tz=Math.max(-42,Math.min(42,a.z+(Math.random()-.5)*10))}
+    if(a.timer<=0){a.timer=2.5+Math.random()*4;a.tx=Math.max(-(half-8),Math.min(half-8,a.x+(Math.random()-.5)*10));a.tz=Math.max(-(half-8),Math.min(half-8,a.z+(Math.random()-.5)*10))}
     const dx=(a.tx??a.x)-a.x,dz=(a.tz??a.z)-a.z,d=Math.hypot(dx,dz);
     if(d>.2){a.x+=dx/d*a.spd*dt;a.z+=dz/d*a.spd*dt}
   }
@@ -673,27 +768,98 @@ function actorMeshData(){
   if(player.third)addHum(player.x,player.z,player.y-1.1,11,10);
   return {v:new Float32Array(av),n:new Float32Array(an),u:new Float32Array(au)};
 }
-const ACTOR_VIEW=42;
-const ACTOR_VIEW_SQ=ACTOR_VIEW*ACTOR_VIEW;
-let actorBuffers=null,actorCount=0,actorTimer=1;
-function actorNear(o){const dx=o.x-player.x,dz=o.z-player.z;return dx*dx+dz*dz<=ACTOR_VIEW_SQ;}
-function actorMeshData(){
- const av=[],an=[],au=[]; const put=(a,p)=>a.push(...p);
- const add=(x,y,z,w,h,d,mat)=>{const x0=x-w/2,x1=x+w/2,y0=y,y1=y+h,z0=z-d/2,z1=z+d/2;const q=[[[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],[0,0,1]],[[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[0,0,-1]],[[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0],[-1,0,0]],[[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[1,0,0]],[[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0],[0,1,0]],[[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],[0,-1,0]]];for(const f of q){const p=[f[0],f[1],f[2],f[0],f[2],f[3]];for(const v of p)put(av,v);for(let i=0;i<6;i++)put(an,f[4]);for(const qv of [[0,0],[1,0],[1,1],[0,0],[1,1],[0,1]])put(au,uvTile(mat,qv[0],qv[1]));}};
- const addHum=(x,z,y,body,skin)=>{add(x,y,z,.75,1,.5,body);add(x,y+1,z,.52,.58,.52,skin);add(x-.2,y+.35,z,.22,.75,.22,body);add(x+.2,y+.35,z,.22,.75,.22,body);add(x-.18,y-.55,z,.22,.7,.22,body);add(x+.18,y-.55,z,.22,.7,.22,body);};
- for(const n of npcs)if(actorNear(n))addHum(n.x,n.z,hAt(n.x,n.z),11,10);
- for(const e of enemies)if(actorNear(e)){const mat=e.type==="zombie"?11:e.type==="skeleton"?14:4;if(e.type==="slime")add(e.x,hAt(e.x,e.z),e.z,.9,.7,.9,4);else addHum(e.x,e.z,hAt(e.x,e.z)+.02,mat,e.type==="skeleton"?14:10);}
- for(const a of animals)if(actorNear(a)){const mat=a.type==="cow"?3:a.type==="pig"?13:15;add(a.x,hAt(a.x,a.z)+.05,a.z,.95,.65,.7,mat);add(a.x,hAt(a.x,a.z)+.55,a.z-.35,.46,.42,.5,mat);}
- if(player.third)addHum(player.x,player.z,player.y-1.1,11,10);
- return {v:new Float32Array(av),n:new Float32Array(an),u:new Float32Array(au)};
-}
-function updateActors(){const d=actorMeshData();if(!actorBuffers)actorBuffers={v:buffer(d.v,gl.DYNAMIC_DRAW),n:buffer(d.n,gl.DYNAMIC_DRAW),u:buffer(d.u,gl.DYNAMIC_DRAW)};else{gl.bindBuffer(gl.ARRAY_BUFFER,actorBuffers.v);gl.bufferData(gl.ARRAY_BUFFER,d.v,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,actorBuffers.n);gl.bufferData(gl.ARRAY_BUFFER,d.n,gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,actorBuffers.u);gl.bufferData(gl.ARRAY_BUFFER,d.u,gl.DYNAMIC_DRAW);}actorCount=d.v.length/3;actorTimer=0;}
+let actorBuffers=null,actorCount=0;
+let actorTimer=1;
 
+function actorNear(o){
+  const dx=o.x-player.x,dz=o.z-player.z;
+  return dx*dx+dz*dz<=ACTOR_VIEW_SQ;
+}
+
+function actorMeshData(){
+  const av=[],an=[],au=[];
+  function put(dst,p){dst.push(...p)}
+  const add=(x,y,z,w,h,d,mat)=>{
+    const x0=x-w/2,x1=x+w/2,y0=y,y1=y+h,z0=z-d/2,z1=z+d/2;
+    const q=[
+      [[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1],[0,0,1]],
+      [[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0],[0,0,-1]],
+      [[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0],[-1,0,0]],
+      [[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1],[1,0,0]],
+      [[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0],[0,1,0]],
+      [[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1],[0,-1,0]]
+    ];
+    for(const f of q){
+      const p=[f[0],f[1],f[2],f[0],f[2],f[3]];
+      for(const v of p)put(av,v);
+      for(let i=0;i<6;i++)put(an,f[4]);
+      for(const qv of [[0,0],[1,0],[1,1],[0,0],[1,1],[0,1]])put(au,uvTile(mat,qv[0],qv[1]));
+    }
+  };
+  const addHum=(x,z,y,body,skin)=>{
+    add(x,y,z,.75,1.0,.5,body);add(x,y+1.0,z,.52,.58,.52,skin);
+    add(x-.2,y+.35,z,.22,.75,.22,body);add(x+.2,y+.35,z,.22,.75,.22,body);
+    add(x-.18,y-.55,z,.22,.7,.22,body);add(x+.18,y-.55,z,.22,.7,.22,body);
+  };
+
+  for(const n of npcs)if(actorNear(n))addHum(n.x,n.z,hAt(n.x,n.z),11,10);
+  for(const e of enemies)if(actorNear(e)){
+    const mat=e.type==="zombie"?11:e.type==="skeleton"?14:4;
+    if(e.type==="slime")add(e.x,hAt(e.x,e.z),e.z,.9,.7,.9,4);
+    else addHum(e.x,e.z,hAt(e.x,e.z)+.02,mat,e.type==="skeleton"?14:10);
+  }
+  for(const a of animals)if(actorNear(a)){
+    const mat=a.type==="cow"?3:a.type==="pig"?13:15;
+    add(a.x,hAt(a.x,a.z)+.05,a.z,.95,.65,.7,mat);
+    add(a.x,hAt(a.x,a.z)+.55,a.z-.35,.46,.42,.5,mat);
+  }
+  if(player.third)addHum(player.x,player.z,player.y-1.1,11,10);
+  return {v:new Float32Array(av),n:new Float32Array(an),u:new Float32Array(au)};
+}
+
+function updateActors(){
+  const d=actorMeshData();
+  if(!actorBuffers){
+    actorBuffers={v:buffer(d.v,gl.DYNAMIC_DRAW),n:buffer(d.n,gl.DYNAMIC_DRAW),u:buffer(d.u,gl.DYNAMIC_DRAW)};
+  }else{
+    gl.bindBuffer(gl.ARRAY_BUFFER,actorBuffers.v);gl.bufferData(gl.ARRAY_BUFFER,d.v,gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER,actorBuffers.n);gl.bufferData(gl.ARRAY_BUFFER,d.n,gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER,actorBuffers.u);gl.bufferData(gl.ARRAY_BUFFER,d.u,gl.DYNAMIC_DRAW);
+  }
+  actorCount=d.v.length/3;
+  actorTimer=0;
+}
 const proj=mat4(),view=mat4(),vp=mat4();
-let width=0,height=0,renderScale=1.0,perfAccum=0,perfFrames=0;
-function resize(){const dpr=Math.min(window.devicePixelRatio||1,1.35)*renderScale;width=Math.max(640,Math.floor(innerWidth*dpr));height=Math.max(360,Math.floor(innerHeight*dpr));canvas.width=width;canvas.height=height;gl.viewport(0,0,width,height);perspective(proj,Math.PI/2.7,width/height,.08,110);}
-addEventListener("resize",resize);resize();
-function adaptiveQuality(dt){perfAccum+=dt;perfFrames++;if(perfFrames<45||perfAccum<.25)return;const avg=perfAccum/perfFrames;perfAccum=0;perfFrames=0;if(avg>.021&&renderScale>.78){renderScale=Math.max(.78,renderScale-.08);resize();}else if(avg<.014&&renderScale<1.18){renderScale=Math.min(1.18,renderScale+.04);resize();}}
+let width=0,height=0;
+let renderScale=1.0;
+let perfAccum=0,perfFrames=0;
+
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,1.35)*renderScale;
+  width=Math.max(640,Math.floor(innerWidth*dpr));
+  height=Math.max(360,Math.floor(innerHeight*dpr));
+  canvas.width=width;canvas.height=height;
+  gl.viewport(0,0,width,height);
+  perspective(proj,Math.PI/2.7,width/height,.08,110);
+}
+addEventListener("resize",resize);
+resize();
+
+function adaptiveQuality(dt){
+  perfAccum+=dt;perfFrames++;
+  if(perfFrames<45||perfAccum<.25)return;
+  const avg=perfAccum/perfFrames;
+  perfAccum=0;perfFrames=0;
+
+  if(avg>.021 && renderScale>.78){
+    renderScale=Math.max(.78,renderScale-.08);
+    resize();
+  }else if(avg<.014 && renderScale<1.18){
+    renderScale=Math.min(1.18,renderScale+.04);
+    resize();
+  }
+}
+
 function bindMesh(v,n,u,count){
   gl.bindBuffer(gl.ARRAY_BUFFER,vbo===v?v: v);
   gl.enableVertexAttribArray(loc.pos);gl.vertexAttribPointer(loc.pos,3,gl.FLOAT,false,0,0);
@@ -722,13 +888,25 @@ function render(){
   gl.useProgram(prog);
   gl.uniformMatrix4fv(loc.vp,false,vp);
   gl.uniform3f(loc.cam,cx,cy,cz);
-  const day=(performance.now()%120000)/120000;const ang=day*Math.PI*2-.55;const sunY=Math.sin(ang);const daylight=Math.max(.12,Math.min(1,(sunY+.28)/1.05));
-  gl.uniform3f(loc.sun,Math.cos(ang)*.65,Math.max(.18,sunY),.35);
+  const dayCycle=(performance.now()%120000)/120000;
+  const sunAng=dayCycle*Math.PI*2-.55;
+  const sunY=Math.sin(sunAng);
+  const daylight=Math.max(.12,Math.min(1,(sunY+.28)/1.05));
+  const sunX=Math.cos(sunAng)*.65;
+  const sunZ=.35;
+  gl.uniform3f(loc.sun,sunX,Math.max(.18,sunY),sunZ);
   gl.uniform3f(loc.sunColor,1.0,.78,.58);
+  gl.uniform3f(loc.sky,.30+.22*daylight,.46+.18*daylight,.58+.22*daylight);
   gl.uniform3f(loc.fog,.30+.22*daylight,.46+.18*daylight,.58+.22*daylight);
   gl.uniform1f(loc.exposure,.88+.22*daylight);
-  gl.uniform1f(loc.fogNear,30);gl.uniform1f(loc.fogFar,72);
+  gl.uniform1f(loc.fogNear,30);
+  gl.uniform1f(loc.fogFar,118);
   gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,tex);gl.uniform1i(loc.tex,0);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER,terrainVbo);gl.enableVertexAttribArray(loc.pos);gl.vertexAttribPointer(loc.pos,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,terrainNbo);gl.enableVertexAttribArray(loc.normal);gl.vertexAttribPointer(loc.normal,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,terrainTbo);gl.enableVertexAttribArray(loc.uv);gl.vertexAttribPointer(loc.uv,2,gl.FLOAT,false,0,0);
+  gl.drawArrays(gl.TRIANGLES,0,terrainCount);
 
   gl.bindBuffer(gl.ARRAY_BUFFER,vbo);gl.enableVertexAttribArray(loc.pos);gl.vertexAttribPointer(loc.pos,3,gl.FLOAT,false,0,0);
   gl.bindBuffer(gl.ARRAY_BUFFER,nbo);gl.enableVertexAttribArray(loc.normal);gl.vertexAttribPointer(loc.normal,3,gl.FLOAT,false,0,0);
@@ -762,12 +940,14 @@ function startMusic(){
 }
 
 function tick(t){
-  const dt=Math.min(.033,(t-last)/1000);last=t;adaptiveQuality(dt);
+  const dt=Math.min(.033,(t-last)/1000);last=t;
+  adaptiveQuality(dt);
   if(started){
     if(player.death>0){player.death-=dt;if(player.death<=0)respawn()}
     else{
       player.attackCd=Math.max(0,player.attackCd-dt);player.flash=Math.max(0,player.flash-dt);
-      move(dt);vertical(dt);enemyAI(dt);actorTimer+=dt;
+      move(dt);vertical(dt);enemyAI(dt);
+      actorTimer+=dt;
       player.hunger=Math.max(0,player.hunger-dt*.045);
       if(player.hunger<=0)player.hp-=dt*1.5;
       player.mana=Math.min(100,player.mana+dt*2.8);
