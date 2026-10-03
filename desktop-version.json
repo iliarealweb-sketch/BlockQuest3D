@@ -1,5 +1,5 @@
 {
-  "version": "1.1.4",
+  "version": "1.1.5",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "Three.js is built into the game file; no CDN, dynamic import, or external engine download is needed"
+  "notes": "Render distance limited to about 34 blocks for textured terrain; far terrain is lightweight and nearby detail streams gradually"
 }
