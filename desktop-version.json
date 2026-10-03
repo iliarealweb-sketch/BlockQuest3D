@@ -1,6 +1,6 @@
 {
-  "version": "4.0.1",
+  "version": "4.1.0",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
   "url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "Classic Archive Edition 4.0.1 — forced version bump so existing 4.0.0/3.x desktop clients can receive the new Classic client wrapper."
+  "notes": "Desktop Classic 4.1.0: the original archived Minecraft Classic HTML structure runs inside a dedicated Electron window, with Classic CSS/JS/textures served from the pinned archive snapshot."
 }
