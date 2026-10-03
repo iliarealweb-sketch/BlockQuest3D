@@ -1,5 +1,6 @@
 {
-  "version": "4.0.0",
+  "version": "4.0.1",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "Classic Archive Edition: uses a pinned snapshot of the archived classic.minecraft.net client code. Mojang-era game textures/assets are fetched by that archived client rather than repackaged into BlockQuest."
+  "url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
+  "notes": "Classic Archive Edition 4.0.1 — forced version bump so existing 4.0.0/3.x desktop clients can receive the new Classic client wrapper."
 }
