@@ -31,6 +31,39 @@ canvas{display:block;width:100%;height:100%;image-rendering:auto;cursor:crosshai
 #error{position:absolute;left:6%;right:6%;top:8%;bottom:8%;display:none;z-index:30;background:#281216;color:#fff;border:1px solid #a04b58;border-radius:12px;padding:18px;white-space:pre-wrap;overflow:auto}
 @media(max-width:850px){#panel{width:215px}.slot{width:48px;height:48px;font-size:21px}#message{bottom:84px}}
 </style>
+<script>
+/* Start-screen handler is installed before the Three.js module loads.
+   This guarantees PLAY still works even while the game engine is initializing. */
+(() => {
+  window.__bqPlayRequested = false;
+
+  function startBlockQuest() {
+    window.__bqPlayRequested = true;
+    const screen = document.getElementById("gameStartScreen");
+    if (screen) {
+      screen.style.setProperty("display", "none", "important");
+      screen.style.visibility = "hidden";
+      screen.style.pointerEvents = "none";
+    }
+  }
+
+  document.addEventListener("pointerup", (e) => {
+    const button = e.target?.closest?.("#playButton");
+    if (!button) return;
+    e.preventDefault();
+    e.stopPropagation();
+    startBlockQuest();
+  }, true);
+
+  document.addEventListener("click", (e) => {
+    const button = e.target?.closest?.("#playButton");
+    if (!button) return;
+    e.preventDefault();
+    e.stopPropagation();
+    startBlockQuest();
+  }, true);
+})();
+</script>
 </head>
 <body>
 <div id="gameStartScreen" style="
@@ -2013,6 +2046,10 @@ function msg(text){
 }
 
 let mouseLookActive=false;
+if(window.__bqPlayRequested){
+  state.started=true;
+  mouseLookActive=true;
+}
 
 function applyMouseLook(dx,dy){
   if(!state.started || (!state.locked && !mouseLookActive))return;
