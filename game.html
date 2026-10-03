@@ -395,7 +395,11 @@ const MAT={
 };
 
 function makeTerrain(){
-  // Generate the height map first: this is tiny compared with building meshes.
+  // Fast LOD terrain:
+  // 1) A tiny 25x25 low-detail mesh covers the whole world immediately.
+  // 2) Only the area around the spawn is built from textured voxel blocks.
+  // 3) More detailed chunks stream in after the first frame.
+
   for(let z=0;z<WORLD;z++){
     for(let x=0;x<WORLD;x++){
       let h=3;
@@ -416,8 +420,50 @@ function makeTerrain(){
     }
   }
 
+  // Very low-detail far terrain. 25x25 vertices means only 625 vertices
+  // instead of tens of thousands of distant voxel blocks.
+  const grid=25;
+  const positions=[];
+  const indices=[];
+  for(let gz=0;gz<grid;gz++){
+    const z=(gz/(grid-1))*(WORLD-1);
+    for(let gx=0;gx<grid;gx++){
+      const x=(gx/(grid-1))*(WORLD-1);
+      const x0=Math.floor(x),z0=Math.floor(z);
+      const x1=Math.min(WORLD-1,x0+1),z1=Math.min(WORLD-1,z0+1);
+      const tx=x-x0,tz=z-z0;
+      const h00=heights[z0][x0],h10=heights[z0][x1];
+      const h01=heights[z1][x0],h11=heights[z1][x1];
+      const h=(h00*(1-tx)+h10*tx)*(1-tz)+(h01*(1-tx)+h11*tx)*tz;
+      positions.push(x,h-.48,z);
+    }
+  }
+
+  for(let gz=0;gz<grid-1;gz++){
+    for(let gx=0;gx<grid-1;gx++){
+      const i=gz*grid+gx;
+      indices.push(i,i+1,i+grid+1,i,i+grid+1,i+grid);
+    }
+  }
+
+  const farGeo=new THREE.BufferGeometry();
+  farGeo.setAttribute("position",new THREE.Float32BufferAttribute(positions,3));
+  farGeo.setIndex(indices);
+  farGeo.computeVertexNormals();
+
+  const farMat=new THREE.MeshStandardMaterial({
+    color:0x5f913f,
+    roughness:1
+  });
+
+  const farTerrain=new THREE.Mesh(farGeo,farMat);
+  farTerrain.frustumCulled=true;
+  scene.add(farTerrain);
+
+  // Slightly closer zone: a single flat/simple mesh over the whole map.
+  // The textured voxel layer below is only built around the player.
   const cube=new THREE.BoxGeometry(1,1,1);
-  const chunkSize=10;
+  const chunkSize=8;
   const chunks=new Map();
 
   function chunkFor(cx,cz,type){
@@ -427,15 +473,17 @@ function makeTerrain(){
     return arr;
   }
 
-  // Prepare chunk data quickly, but only upload nearby meshes during startup.
+  // Only top 4 layers are needed for the visible voxel shell. The low-detail
+  // mesh underneath supplies the distant terrain.
   for(let z=0;z<WORLD;z++){
     for(let x=0;x<WORLD;x++){
       const h=heights[z][x];
       const cx=Math.floor(x/chunkSize);
       const cz=Math.floor(z/chunkSize);
+      const bottom=Math.max(0,h-4);
 
-      for(let y=0;y<h;y++){
-        const t=y===h-1?"grass":y>=h-3?"dirt":"stone";
+      for(let y=bottom;y<h;y++){
+        const t=y===h-1?"grass":y>=h-2?"dirt":"stone";
         chunkFor(cx,cz,t).push([x+.5,y+.5,z+.5]);
       }
     }
@@ -448,8 +496,8 @@ function makeTerrain(){
     if(built.has(key))return;
     const positions=chunks.get(key);
     if(!positions||!positions.length)return;
-    const t=key.split(",")[2];
 
+    const t=key.split(",")[2];
     const inst=new THREE.InstancedMesh(cube,MAT[t],positions.length);
     inst.frustumCulled=true;
     inst.instanceMatrix.setUsage(THREE.StaticDrawUsage);
@@ -467,34 +515,29 @@ function makeTerrain(){
     built.add(key);
   }
 
-  // The player state is declared later in initGame, so use the fixed spawn
-  // coordinates while preparing the first terrain chunks.
-  const spawnX=34.5;
-  const spawnZ=54.5;
+  const spawnX=34.5,spawnZ=54.5;
   const centerChunkX=Math.floor(spawnX/chunkSize);
   const centerChunkZ=Math.floor(spawnZ/chunkSize);
 
-  // Only build the area around the player before PLAY becomes available.
-  // The rest of the 100x100 world streams in a few chunks at a time.
+  // Detailed textured voxel terrain around the player.
   for(const [key] of chunks){
     const [cx,cz]=key.split(",").map(Number);
-    if(Math.abs(cx-centerChunkX)<=2 && Math.abs(cz-centerChunkZ)<=2){
+    if(Math.abs(cx-centerChunkX)<=3 && Math.abs(cz-centerChunkZ)<=3){
       buildChunk(key);
     }
   }
 
+  // Stream extra textured chunks after startup in small batches.
   const pending=[...chunks.keys()].filter(k=>!built.has(k));
   let cursor=0;
 
   const stream=()=>{
-    const end=Math.min(cursor+6,pending.length);
+    const end=Math.min(cursor+3,pending.length);
     for(;cursor<end;cursor++)buildChunk(pending[cursor]);
-
-    if(cursor<pending.length){
-      setTimeout(stream,0);
-    }
+    if(cursor<pending.length)setTimeout(stream,16);
   };
-  setTimeout(stream,0);
+
+  setTimeout(stream,150);
 
   const water=new THREE.Mesh(
     new THREE.PlaneGeometry(WORLD,WORLD),
