@@ -7,11 +7,18 @@ const REPO="iliarealweb-sketch/BlockQuest3D";
 const VERSION_FILE="desktop-version.json";
 const GAME_FILE="game.html";
 const REMOTE_VERSION_URL=`https://raw.githubusercontent.com/${REPO}/main/${VERSION_FILE}`;
+
 const USER_DIR=app.getPath("userData");
 const USER_GAME=path.join(USER_DIR,GAME_FILE);
 const USER_VERSION=path.join(USER_DIR,VERSION_FILE);
 
 let win;
+let updateBusy=false;
+
+function readJson(file,fallback={}) {
+  try { return JSON.parse(fs.readFileSync(file,"utf8")); }
+  catch { return fallback; }
+}
 
 function ensureWritableGame(){
   if(!fs.existsSync(USER_GAME)){
@@ -39,7 +46,13 @@ function createWindow(){
 
 function getText(url){
   return new Promise((resolve,reject)=>{
-    const req=https.get(url,{headers:{"Cache-Control":"no-cache","User-Agent":"BlockQuest3D-Updater"}},res=>{
+    const req=https.get(url,{
+      headers:{
+        "Cache-Control":"no-cache, no-store",
+        "Pragma":"no-cache",
+        "User-Agent":"BlockQuest3D-Updater/3.1.2"
+      }
+    },res=>{
       if(res.statusCode>=300&&res.statusCode<400&&res.headers.location){
         res.resume();
         return getText(res.headers.location).then(resolve,reject);
@@ -53,7 +66,7 @@ function getText(url){
       res.on("data",d=>s+=d);
       res.on("end",()=>resolve(s));
     });
-    req.setTimeout(15000,()=>req.destroy(new Error("Timeout")));
+    req.setTimeout(20000,()=>req.destroy(new Error("Timeout")));
     req.on("error",reject);
   });
 }
@@ -61,6 +74,7 @@ function getText(url){
 function versionParts(v){
   return String(v||"0").replace(/^v/,"").split(".").map(x=>parseInt(x,10)||0);
 }
+
 function isNewer(remote,local){
   const a=versionParts(remote),b=versionParts(local);
   for(let i=0;i<3;i++){
@@ -69,57 +83,79 @@ function isNewer(remote,local){
   return false;
 }
 
+function currentLocalVersion(){
+  const user=readJson(USER_VERSION,{});
+  const bundled=readJson(path.join(__dirname,VERSION_FILE),{});
+  return isNewer(bundled.version,user.version) ? String(bundled.version||"0") : String(user.version||bundled.version||"0");
+}
+
 async function checkUpdate(){
-  const local={
-    version:"1.0.0"
-  };
+  if(updateBusy || !win || win.isDestroyed()) return false;
+  updateBusy=true;
   try{
-    Object.assign(local,JSON.parse(fs.readFileSync(USER_VERSION,"utf8")));
-  }catch{}
+    const localVersion=currentLocalVersion();
+    const remote=readJson(
+      await getText(REMOTE_VERSION_URL+"?cb="+Date.now()),
+      {}
+    );
 
-  const remote=JSON.parse(await getText(REMOTE_VERSION_URL+"?t="+Date.now()));
-  if(!remote.version||!isNewer(remote.version,local.version))return false;
+    if(!remote.version || !isNewer(remote.version,localVersion)) return false;
 
-  const answer=await dialog.showMessageBox(win,{
-    type:"info",
-    buttons:["Update now","Later"],
-    defaultId:0,
-    cancelId:1,
-    title:"BlockQuest 3D Update",
-    message:"Version "+remote.version+" is available.",
-    detail:remote.notes||"A new version is ready."
-  });
+    const answer=await dialog.showMessageBox(win,{
+      type:"info",
+      buttons:["Update now","Later"],
+      defaultId:0,
+      cancelId:1,
+      title:"BlockQuest 3D Update",
+      message:"Version "+remote.version+" is available.",
+      detail:remote.notes||"A new version is ready."
+    });
 
-  if(answer.response!==0)return false;
+    if(answer.response!==0) return false;
 
-  const url=(remote.game_url || `https://raw.githubusercontent.com/${REPO}/main/${GAME_FILE}`)+"?t="+Date.now();
-  const newGame=await getText(url);
+    const rawUrl=remote.game_url || remote.url ||
+      `https://raw.githubusercontent.com/${REPO}/main/${GAME_FILE}`;
+    const url=rawUrl+(rawUrl.includes("?")?"&":"?")+"cb="+Date.now();
+    const newGame=await getText(url);
 
-  if(newGame.length<10000||!newGame.includes("<html")||!newGame.includes("BlockQuest 3D")){
-    throw new Error("Downloaded game file is invalid.");
+    if(newGame.length<10000 ||
+       !newGame.includes("<html") ||
+       !newGame.includes("BlockQuest 3D")){
+      throw new Error("Downloaded game file is invalid.");
+    }
+
+    const tempGame=USER_GAME+".update";
+    const tempVersion=USER_VERSION+".update";
+
+    fs.writeFileSync(tempGame,newGame,"utf8");
+    fs.writeFileSync(
+      tempVersion,
+      JSON.stringify({
+        version:String(remote.version),
+        game_url:remote.game_url||remote.url||undefined
+      },null,2)+"\n",
+      "utf8"
+    );
+
+    fs.rmSync(USER_GAME,{force:true});
+    fs.renameSync(tempGame,USER_GAME);
+    fs.rmSync(USER_VERSION,{force:true});
+    fs.renameSync(tempVersion,USER_VERSION);
+
+    await dialog.showMessageBox(win,{
+      type:"info",
+      buttons:["Restart"],
+      title:"Update installed",
+      message:"BlockQuest 3D "+remote.version+" is installed.",
+      detail:"The game will restart with the new version."
+    });
+
+    app.relaunch();
+    app.exit(0);
+    return true;
+  } finally {
+    updateBusy=false;
   }
-
-  const tempGame=USER_GAME+".update";
-  const tempVersion=USER_VERSION+".update";
-
-  fs.writeFileSync(tempGame,newGame,"utf8");
-  fs.writeFileSync(tempVersion,JSON.stringify({
-    version:String(remote.version)
-  },null,2)+"\n","utf8");
-
-  fs.renameSync(tempGame,USER_GAME);
-  fs.renameSync(tempVersion,USER_VERSION);
-
-  await dialog.showMessageBox(win,{
-    type:"info",
-    buttons:["Restart"],
-    title:"Update installed",
-    message:"BlockQuest 3D "+remote.version+" is installed."
-  });
-
-  app.relaunch();
-  app.exit(0);
-  return true;
 }
 
 app.whenReady().then(()=>{
@@ -136,7 +172,7 @@ app.whenReady().then(()=>{
     checkUpdate().catch(err=>{
       console.log("BlockQuest updater:",err.message);
     });
-  },6*60*60*1000);
+  },30*60*1000);
 });
 
 app.on("window-all-closed",()=>{
