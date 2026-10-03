@@ -137,7 +137,7 @@ background:rgba(8,12,18,.94);pointer-events:auto;visibility:visible;opacity:1;">
 (async()=>{
   const errorBox=document.getElementById("error");
   try{
-    const THREE=await import("https://cdn.jsdelivr.net/npm/three@0.180.0/+esm");
+    const THREE=await import("./three.module.min.js");
     initGame(THREE);
 
     window.__bqActivateGame=()=>{
