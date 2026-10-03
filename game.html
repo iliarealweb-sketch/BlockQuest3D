@@ -395,6 +395,7 @@ const MAT={
 };
 
 function makeTerrain(){
+  // Generate the height map first: this is tiny compared with building meshes.
   for(let z=0;z<WORLD;z++){
     for(let x=0;x<WORLD;x++){
       let h=3;
@@ -422,15 +423,11 @@ function makeTerrain(){
   function chunkFor(cx,cz,type){
     const key=cx+","+cz+","+type;
     let arr=chunks.get(key);
-    if(!arr){
-      arr=[];
-      chunks.set(key,arr);
-    }
+    if(!arr){arr=[];chunks.set(key,arr);}
     return arr;
   }
 
-  // Keep the voxel look, but split terrain into chunks so Three.js can
-  // frustum-cull distant chunks instead of drawing the whole 100x100 map.
+  // Prepare chunk data quickly, but only upload nearby meshes during startup.
   for(let z=0;z<WORLD;z++){
     for(let x=0;x<WORLD;x++){
       const h=heights[z][x];
@@ -444,34 +441,56 @@ function makeTerrain(){
     }
   }
 
-  const m=new THREE.Matrix4();
+  const matrix=new THREE.Matrix4();
+  const built=new Set();
 
-  for(const [key,positions] of chunks){
-    if(!positions.length)continue;
+  function buildChunk(key){
+    if(built.has(key))return;
+    const positions=chunks.get(key);
+    if(!positions||!positions.length)return;
+    const t=key.split(",")[2];
 
-    const parts=key.split(",");
-    const t=parts[2];
-
-    const inst=new THREE.InstancedMesh(
-      cube,
-      MAT[t],
-      positions.length
-    );
-
+    const inst=new THREE.InstancedMesh(cube,MAT[t],positions.length);
     inst.frustumCulled=true;
     inst.instanceMatrix.setUsage(THREE.StaticDrawUsage);
 
     for(let i=0;i<positions.length;i++){
       const p=positions[i];
-      m.makeTranslation(p[0],p[1],p[2]);
-      inst.setMatrixAt(i,m);
+      matrix.makeTranslation(p[0],p[1],p[2]);
+      inst.setMatrixAt(i,matrix);
     }
 
     inst.instanceMatrix.needsUpdate=true;
     inst.receiveShadow=false;
     inst.castShadow=false;
     scene.add(inst);
+    built.add(key);
   }
+
+  const centerChunkX=Math.floor(state.px/chunkSize);
+  const centerChunkZ=Math.floor(state.pz/chunkSize);
+
+  // Only build the area around the player before PLAY becomes available.
+  // The rest of the 100x100 world streams in a few chunks at a time.
+  for(const [key] of chunks){
+    const [cx,cz]=key.split(",").map(Number);
+    if(Math.abs(cx-centerChunkX)<=2 && Math.abs(cz-centerChunkZ)<=2){
+      buildChunk(key);
+    }
+  }
+
+  const pending=[...chunks.keys()].filter(k=>!built.has(k));
+  let cursor=0;
+
+  const stream=()=>{
+    const end=Math.min(cursor+6,pending.length);
+    for(;cursor<end;cursor++)buildChunk(pending[cursor]);
+
+    if(cursor<pending.length){
+      setTimeout(stream,0);
+    }
+  };
+  setTimeout(stream,0);
 
   const water=new THREE.Mesh(
     new THREE.PlaneGeometry(WORLD,WORLD),
@@ -489,7 +508,6 @@ function makeTerrain(){
   scene.add(water);
 }
 makeTerrain();
-
 const trees=[];
 const rocks=[];
 const houses=[];
