@@ -467,8 +467,12 @@ function makeTerrain(){
     built.add(key);
   }
 
-  const centerChunkX=Math.floor(state.px/chunkSize);
-  const centerChunkZ=Math.floor(state.pz/chunkSize);
+  // The player state is declared later in initGame, so use the fixed spawn
+  // coordinates while preparing the first terrain chunks.
+  const spawnX=34.5;
+  const spawnZ=54.5;
+  const centerChunkX=Math.floor(spawnX/chunkSize);
+  const centerChunkZ=Math.floor(spawnZ/chunkSize);
 
   // Only build the area around the player before PLAY becomes available.
   // The rest of the 100x100 world streams in a few chunks at a time.
