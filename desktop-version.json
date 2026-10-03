@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.8",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "Much faster startup: nearby terrain loads first and the rest streams in after the game starts"
+  "notes": "Reliable automatic updater: saves updates in a writable user folder and avoids GitHub cache"
 }
