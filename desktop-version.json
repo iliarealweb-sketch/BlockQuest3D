@@ -1,5 +1,5 @@
 {
-  "version": "1.1.1",
+  "version": "1.1.2",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "Ultra-fast startup: only the nearest terrain is detailed initially; distant chunks load one per frame"
+  "notes": "Offline startup: Three.js is bundled locally instead of downloaded from a CDN"
 }
