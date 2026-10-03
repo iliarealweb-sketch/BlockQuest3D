@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Minecraft Classic Archive</title>
+<title>Minecraft Classic Archive — BlockQuest 4.0.1</title>
 <style>
 html,body{margin:0;width:100%;height:100%;background:#111;overflow:hidden}
 #status{position:fixed;left:0;right:0;top:0;padding:10px;text-align:center;
@@ -11,12 +11,12 @@ font:14px Arial,sans-serif;color:#fff;background:rgba(0,0,0,.65);z-index:10}
 </style>
 </head>
 <body>
-<div id="status">Loading the archived Minecraft Classic client…</div>
+<div id="status">BlockQuest 3D 4.0.1 — loading the archived Minecraft Classic client…</div>
 <script>
 "use strict";
 const CLASSIC_URL="https://cdn.jsdelivr.net/gh/SajagIN/minecraft-classic@22d79dfae142528bee659fc957fb01a93331b37f/index.html";
 const FALLBACK="https://raw.githack.com/SajagIN/minecraft-classic/22d79dfae142528bee659fc957fb01a93331b37f/index.html";
-document.getElementById("status").textContent="Loading archived Classic code and textures…";
+document.getElementById("status").textContent="Loading Minecraft Classic 0.30 code and its archived textures…";
 setTimeout(()=>location.replace(CLASSIC_URL),40);
 </script>
 <noscript>JavaScript is required to run the archived Minecraft Classic client.</noscript>
