@@ -282,53 +282,93 @@ const keys=Object.create(null);
 const WORLD=100;
 const heights=Array.from({length:WORLD},()=>Array(WORLD).fill(3));
 
-function pixTexture(base,spots,seed){
-  const cv=document.createElement("canvas");
-  cv.width=16;
-  cv.height=16;
-  const g=cv.getContext("2d");
-  g.imageSmoothingEnabled=false;
-  g.fillStyle=base;
-  g.fillRect(0,0,16,16);
+function hexRGB(hex){
+  const n=parseInt(hex.replace("#",""),16);
+  return [(n>>16)&255,(n>>8)&255,n&255];
+}
 
+function pixTexture(base,spots,seed,mode="noise"){
+  const W=32,H=32,data=new Uint8Array(W*H*4);
+  const baseRGB=hexRGB(base),palette=spots.map(hexRGB);
+  for(let i=0;i<W*H;i++){
+    const p=i*4;
+    data[p]=baseRGB[0]; data[p+1]=baseRGB[1]; data[p+2]=baseRGB[2]; data[p+3]=255;
+  }
   let n=seed>>>0;
+  const rnd=()=>{n=(n*1664525+1013904223)>>>0;return n/4294967296;};
+  const px=(x,y,c)=>{
+    if(x<0||y<0||x>=W||y>=H)return;
+    const p=(y*W+x)*4;
+    data[p]=c[0];data[p+1]=c[1];data[p+2]=c[2];data[p+3]=255;
+  };
+  const rect=(x,y,w,h,c)=>{
+    for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++)px(xx,yy,c);
+  };
 
-  // Chunky 1–3 pixel clusters for a clear voxel/pixel-art look.
-  for(let i=0;i<70;i++){
-    n=(n*1664525+1013904223)>>>0;
-    g.fillStyle=spots[(n>>>13)%spots.length];
-    const x=n%16;
-    const y=(n>>>5)%16;
-    const w=1+(n%3);
-    const h=1+((n>>>3)%3);
-    g.fillRect(x,y,w,h);
+  if(mode==="grass"){
+    for(let i=0;i<24;i++)rect(Math.floor(rnd()*30),Math.floor(rnd()*30),2+Math.floor(rnd()*4),2+Math.floor(rnd()*4),palette[Math.floor(rnd()*palette.length)]);
+    for(let i=0;i<52;i++)px(Math.floor(rnd()*32),Math.floor(rnd()*32),palette[Math.floor(rnd()*palette.length)]);
+  }else if(mode==="dirt"){
+    for(let i=0;i<42;i++)rect(Math.floor(rnd()*30),Math.floor(rnd()*30),2+Math.floor(rnd()*4),2+Math.floor(rnd()*4),palette[Math.floor(rnd()*palette.length)]);
+  }else if(mode==="stone"){
+    for(let i=0;i<34;i++)rect(Math.floor(rnd()*30),Math.floor(rnd()*30),2+Math.floor(rnd()*5),2+Math.floor(rnd()*4),palette[Math.floor(rnd()*palette.length)]);
+    for(let i=0;i<10;i++){
+      const x=Math.floor(rnd()*28),y=Math.floor(rnd()*29),c=palette[0];
+      for(let k=0;k<4;k++){px(x+k,y+k,c);px(x+k+1,y+k,c);}
+    }
+  }else if(mode==="wood"){
+    for(let x=0;x<W;x++){
+      if(x%7===0)rect(x,0,1,H,palette[0]);
+      if(x%7===1)rect(x,0,1,H,palette[1]||palette[0]);
+    }
+    for(let i=0;i<16;i++){const x=Math.floor(rnd()*29),y=Math.floor(rnd()*28);rect(x,y,2+Math.floor(rnd()*4),1,palette[2%palette.length]);}
+  }else if(mode==="leaves"){
+    for(let i=46;i--;)rect(Math.floor(rnd()*30),Math.floor(rnd()*30),2+Math.floor(rnd()*4),2+Math.floor(rnd()*4),palette[Math.floor(rnd()*palette.length)]);
+  }else if(mode==="path"){
+    for(let i=64;i--;)rect(Math.floor(rnd()*31),Math.floor(rnd()*31),1+Math.floor(rnd()*2),1+Math.floor(rnd()*2),palette[Math.floor(rnd()*palette.length)]);
+  }else if(mode==="roof"){
+    for(let y=0;y<H;y+=6)for(let x=0;x<W;x+=8){
+      rect(x,y,7,1,palette[0]);
+      px(Math.min(31,x+4),Math.min(31,y+3),palette[2%palette.length]);
+    }
+    for(let i=24;i--;)px(Math.floor(rnd()*32),Math.floor(rnd()*32),palette[Math.floor(rnd()*palette.length)]);
+  }else{
+    for(let i=48;i--;)rect(Math.floor(rnd()*30),Math.floor(rnd()*30),2+Math.floor(rnd()*4),2+Math.floor(rnd()*4),palette[Math.floor(rnd()*palette.length)]);
   }
 
-  // Small scattered pixels for extra texture detail.
-  for(let i=0;i<28;i++){
-    n=(n*1664525+1013904223)>>>0;
-    g.fillStyle=spots[(n>>>9)%spots.length];
-    g.fillRect(n%16,(n>>>4)%16,1,1);
-  }
-
-  const t=new THREE.CanvasTexture(cv);
+  const t=new THREE.DataTexture(data,W,H,THREE.RGBAFormat,THREE.UnsignedByteType);
   t.magFilter=THREE.NearestFilter;
   t.minFilter=THREE.NearestFilter;
+  t.wrapS=THREE.RepeatWrapping;
+  t.wrapT=THREE.RepeatWrapping;
   t.generateMipmaps=false;
   t.colorSpace=THREE.SRGBColorSpace;
+  t.needsUpdate=true;
   return t;
 }
 
 const tex={
-  grass:pixTexture("#5b9b3e",["#2e6f2d","#397b30","#75b94e","#8dca59","#4b8938"],11),
-  dirt:pixTexture("#7b4d2b",["#4e301d","#5f3a22","#955d35","#a86a3b","#6d421f"],22),
-  stone:pixTexture("#7d858e",["#4b545d","#5e6770","#969da4","#aeb4ba","#39434b"],33),
-  wood:pixTexture("#744326",["#442615","#59331d","#945a31","#a96a3b","#6b3b20"],44),
-  leaves:pixTexture("#27743a",["#174f27","#1d612d","#3b9145","#55a852","#246b32"],55),
-  sand:pixTexture("#c9b16d",["#947d4a","#a78f53","#dec88b","#e9d69d","#b99f5d"],66),
-  path:pixTexture("#a1885b",["#6f5737","#7e6442","#c0a272","#d0b585","#94764b"],77)
+  grass:pixTexture("#5b9b3e",["#2b652b","#3d7e31","#78bc50","#9bd15e","#4b8f35"],11,"grass"),
+  dirt:pixTexture("#7b4d2b",["#4b2d19","#5c381f","#a26236","#8d542e","#693d20"],22,"dirt"),
+  stone:pixTexture("#7d858e",["#3f4851","#59636d","#9ba3aa","#b4bac0","#303942"],33,"stone"),
+  wood:pixTexture("#744326",["#3e2515","#58321c","#975d32","#aa6c3e","#6b3b1f"],44,"wood"),
+  leaves:pixTexture("#27743a",["#164a24","#1c602d","#398f43","#5cb35b","#236a31"],55,"leaves"),
+  sand:pixTexture("#c9b16d",["#927b48","#a78f53","#dfc98c","#f0dc9f","#b89c58"],66,"path"),
+  path:pixTexture("#a1885b",["#6d5434","#806542","#c3a575","#d7bd91","#94774a"],77,"path"),
+  roof:pixTexture("#6b3b2b",["#4b281e","#7f4932","#9c5a3b","#5d3126"],88,"roof"),
+  iron:pixTexture("#b9c1c9",["#6c747c","#dfe4e8","#929aa2","#eef1f3"],99),
+  gold:pixTexture("#d7a62f",["#8d661a","#f3c94e","#b98320","#ffe17a"],111),
+  skin:pixTexture("#d9aa7d",["#af7e57","#edc39b","#c18e67","#f1cba4"],122),
+  villager1:pixTexture("#4f83c4",["#315a8f","#79a9e5","#3c6da8","#9cc7f5"],133),
+  villager2:pixTexture("#6a5ac7",["#40348b","#8a7bea","#5748ac","#a298f4"],144),
+  villager3:pixTexture("#ae6d40",["#754128","#d59261","#8f552f","#e2ad7a"],155),
+  zombie:pixTexture("#4d9b54",["#2e6537","#72c477","#3c7f44","#9bd59b"],166),
+  skeleton:pixTexture("#d6d0bf",["#918c80","#eee9d7","#b9b3a3","#fffdf0"],177),
+  slime:pixTexture("#5fb95e",["#347338","#8be388","#4b9e4a","#b0f2a8"],188),
+  cow:pixTexture("#5c4538",["#36271f","#806254","#725244","#a98a79"],199),
+  pig:pixTexture("#d78f9d",["#a85f70","#efb0ba","#bd6f82","#ffd0d8"],210),
+  chicken:pixTexture("#f2f0dc",["#c6c2af","#fffdf2","#ded9c7","#a9a597"],221)
 };
-
 const MAT={
  grass:new THREE.MeshStandardMaterial({map:tex.grass,roughness:1}),
  dirt:new THREE.MeshStandardMaterial({map:tex.dirt,roughness:1}),
