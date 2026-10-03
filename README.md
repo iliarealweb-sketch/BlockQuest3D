@@ -1,14 +1,20 @@
-# BlockQuest 3D
+# BlockQuest 3D 4.0.0 — Classic Archive Edition
 
-Voxel survival adventure game with quests, villagers, mobs, weapons, magic, hunger, crafting, mining and exploration.
+This edition changes the game foundation to the archived browser-era Minecraft Classic client.
 
-## Desktop
-The Electron desktop shell loads `game.html` locally instead of opening Chrome.
+Source snapshot:
+- Repository: https://github.com/SajagIN/minecraft-classic
+- Pinned commit: 22d79dfae142528bee659fc957fb01a93331b37f
+- The archive describes itself as preserving the (almost) original classic.minecraft.net code for historical/documentation purposes.
+- The archive also contains a assets/textures directory used by the client.
 
-## Automatic updates
-The desktop app checks `desktop-version.json` on GitHub when it starts and every 6 hours. When the version number changes, it downloads the current `game.html`, installs it, and restarts.
+Important:
+- This desktop package does not copy Mojang-era texture files into the BlockQuest repository.
+- The game launcher loads the archived client at runtime, so an internet connection is required.
+- This is the old Classic client foundation, not the previous custom BlockQuest renderer.
 
-To publish an update:
-1. Replace `game.html`.
-2. Increase the version in `desktop-version.json`.
-3. Commit both files to `main`.
+Updater:
+- Version 4.0.0
+- Checks every 30 minutes
+- Uses a writable per-user copy
+- Forces cache-busting on manifest downloads
