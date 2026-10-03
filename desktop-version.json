@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4",
+  "version": "1.0.5",
   "game_url": "https://raw.githubusercontent.com/iliarealweb-sketch/BlockQuest3D/main/game.html",
-  "notes": "PLAY button now works immediately, even while the game engine is loading"
+  "notes": "Fix black screen after PLAY and add ambient adventure vibe music"
 }
