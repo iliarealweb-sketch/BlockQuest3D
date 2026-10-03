@@ -1,8 +1,8 @@
 {
   "name": "blockquest3d",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "private": true,
-  "description": "BlockQuest 3D desktop app using the archived Minecraft Classic browser client inside Electron",
+  "description": "BlockQuest 3D desktop app using archived Minecraft Classic in Electron",
   "main": "main.js",
   "scripts": {
     "start": "electron ."
