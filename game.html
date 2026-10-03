@@ -39,11 +39,20 @@ canvas{display:block;width:100%;height:100%;image-rendering:auto;cursor:crosshai
 
   function startBlockQuest() {
     window.__bqPlayRequested = true;
+    const button = document.getElementById("playButton");
+    if (button) {
+      button.textContent = "LOADING...";
+      button.disabled = true;
+      button.style.opacity = "0.72";
+      button.style.cursor = "wait";
+    }
     const screen = document.getElementById("gameStartScreen");
     if (screen) {
-      screen.style.setProperty("display", "none", "important");
-      screen.style.visibility = "hidden";
-      screen.style.pointerEvents = "none";
+      const note = screen.querySelector("[data-loading-note]");
+      if (note) note.textContent = "Loading the world...";
+    }
+    if (typeof window.__bqActivateGame === "function") {
+      window.__bqActivateGame();
     }
   }
 
@@ -80,7 +89,7 @@ background:rgba(8,12,18,.94);pointer-events:auto;visibility:visible;opacity:1;">
       background:#38b65a;color:#ffffff;font-size:26px;line-height:1.1;font-family:Arial,sans-serif;
       font-weight:900;cursor:pointer;pointer-events:auto;position:relative;z-index:2147483647;
       box-shadow:0 7px 0 #1c6f32,0 12px 30px rgba(0,0,0,.45);text-align:center;">▶ PLAY</button>
-    <div style="font-size:13px;color:#aeb8c5;margin-top:18px;line-height:1.5;">
+    <div data-loading-note style="font-size:13px;color:#aeb8c5;margin-top:18px;line-height:1.5;">
       Click PLAY, then move your mouse to look.<br>
       W A S D = move • Space = jump • ESC = release mouse
     </div>
@@ -130,11 +139,108 @@ background:rgba(8,12,18,.94);pointer-events:auto;visibility:visible;opacity:1;">
   try{
     const THREE=await import("https://cdn.jsdelivr.net/npm/three@0.180.0/+esm");
     initGame(THREE);
+
+    window.__bqActivateGame=()=>{
+      try{
+        state.started=true;
+        mouseLookActive=true;
+        canvas.focus();
+        startVibeMusic();
+
+        const screen=document.getElementById("gameStartScreen");
+        if(screen){
+          screen.style.setProperty("display","none","important");
+          screen.style.visibility="hidden";
+          screen.style.pointerEvents="none";
+        }
+
+        msg("WASD = MOVE • Mouse = LOOK • Space = JUMP • ESC = release mouse capture.");
+        tryLock();
+      }catch(err){
+        const box=document.getElementById("error");
+        box.style.display="block";
+        box.textContent="Game start error.\\n\\n"+(err?.stack||err);
+      }
+    };
+
+    if(window.__bqPlayRequested){
+      window.__bqActivateGame();
+    }
   }catch(e){
     errorBox.style.display="block";
     errorBox.textContent="Game failed to load.\\n\\n"+(e?.stack||e);
   }
 })();
+
+
+function startVibeMusic(){
+  try{
+    if(window.__bqMusicStarted)return;
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC)return;
+
+    const ctx=window.__bqAudioContext || (window.__bqAudioContext=new AC());
+    if(ctx.state==="suspended")ctx.resume().catch(()=>{});
+
+    const master=ctx.createGain();
+    master.gain.value=.055;
+    master.connect(ctx.destination);
+
+    const pad=ctx.createGain();
+    pad.gain.value=.9;
+    pad.connect(master);
+
+    const notes=[110,138.59,164.81,196];
+    const oscs=notes.map((freq,i)=>{
+      const o=ctx.createOscillator();
+      o.type=i%2?"triangle":"sine";
+      o.frequency.value=freq;
+      const g=ctx.createGain();
+      g.gain.value=.055;
+      o.connect(g);
+      g.connect(pad);
+      o.start();
+      return {o,g};
+    });
+
+    const lfo=ctx.createOscillator();
+    const lfoGain=ctx.createGain();
+    lfo.frequency.value=.08;
+    lfoGain.gain.value=.018;
+    lfo.connect(lfoGain);
+    lfoGain.connect(master.gain);
+    lfo.start();
+
+    const lead=ctx.createOscillator();
+    const leadGain=ctx.createGain();
+    lead.type="sine";
+    leadGain.gain.value=.0;
+    lead.connect(leadGain);
+    leadGain.connect(master);
+    lead.start();
+
+    let step=0;
+    const melody=[220,246.94,293.66,329.63,293.66,246.94,220,196];
+    const timer=setInterval(()=>{
+      if(ctx.state==="closed")return;
+      const now=ctx.currentTime;
+      lead.frequency.setValueAtTime(melody[step%melody.length],now);
+      leadGain.gain.cancelScheduledValues(now);
+      leadGain.gain.setValueAtTime(.0,now);
+      leadGain.gain.linearRampToValueAtTime(.032,now+.08);
+      leadGain.gain.linearRampToValueAtTime(.0,now+.85);
+      step++;
+    },1050);
+
+    window.__bqMusicStarted=true;
+    window.__bqMusicStop=()=>{
+      clearInterval(timer);
+      try{lfo.stop();lead.stop();oscs.forEach(x=>x.o.stop());}catch{}
+      try{ctx.close();}catch{}
+      window.__bqMusicStarted=false;
+    };
+  }catch{}
+}
 
 function initGame(THREE){
 
@@ -2158,31 +2264,6 @@ uiEl("unlock").addEventListener("click",e=>{
 
 const gameStartScreen=document.getElementById("gameStartScreen");
 const playButton=document.getElementById("playButton");
-
-if(gameStartScreen && playButton){
-  playButton.addEventListener("click",function(e){
-    e.preventDefault();
-    e.stopPropagation();
-
-    state.started=true;
-    mouseLookActive=true;
-    canvas.focus();
-
-    gameStartScreen.style.setProperty("display","none","important");
-    gameStartScreen.style.visibility="hidden";
-    gameStartScreen.style.pointerEvents="none";
-
-    msg("WASD = MOVE • Mouse = LOOK • Space = JUMP • ESC = release mouse capture.");
-
-    // Pointer Lock is optional; ordinary mouse-look still works without it.
-    tryLock(e);
-  });
-
-  playButton.addEventListener("pointerdown",function(e){
-    e.preventDefault();
-    e.stopPropagation();
-  });
-}
 
 function setMovementKey(e,down){
   const map={
